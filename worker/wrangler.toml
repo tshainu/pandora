@@ -1,0 +1,9 @@
+name = "pandoralk"
+main = "src/index.ts"
+compatibility_date = "2024-11-01"
+compatibility_flags = ["nodejs_compat"]
+
+[[d1_databases]]
+binding = "pandora_db"
+database_name = "pandora-db"
+database_id = "5aad9c90-e8fe-445c-a198-ca93059612ea"
