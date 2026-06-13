@@ -585,6 +585,7 @@ function POSTab() {
           const isShort = bal !== null && bal < 0;
           const isChange = bal !== null && bal >= 0;
           const { status: resolvedStatus } = resolvePaymentStatus(payModalMode, cash);
+          const isWalkInPartial = isWalkIn && payModalMode === 'pay' && isShort;
           return (
             <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
               onClick={e => { if (e.target === e.currentTarget) setShowPayModal(false); }}>
@@ -634,8 +635,15 @@ function POSTab() {
                       </span>
                     </div>
 
+                    {/* Walk-in partial warning */}
+                    {isWalkInPartial && (
+                      <div style={{ marginBottom: 14, padding: '8px 12px', background: '#FFF3E0', border: '1px solid #FFB74D', borderRadius: 8, fontSize: '0.78rem', color: '#E65100', fontWeight: 600, textAlign: 'center' }}>
+                        ⚠️ Walk-in customers must pay in full. Partial payment not allowed.
+                      </div>
+                    )}
+
                     {/* Status tag preview */}
-                    {cash > 0 && (
+                    {cash > 0 && !isWalkInPartial && (
                       <div style={{ marginBottom: 14, fontSize: '0.78rem', color: 'var(--text3)', textAlign: 'center' }}>
                         Will save as{' '}
                         <span style={{ fontWeight: 700, color: resolvedStatus === 'Paid' ? '#1B8A5A' : resolvedStatus === 'Partial' ? '#E65100' : '#C0001A' }}>
@@ -658,19 +666,19 @@ function POSTab() {
                   <button
                     className="btn btn-primary"
                     style={{ width: '100%', justifyContent: 'center', background: '#1B8A5A', borderColor: '#1B8A5A' }}
-                    disabled={saveSale.isPending}
+                    disabled={saveSale.isPending || isWalkInPartial}
                     onClick={() => saveSale.mutate({ mode: payModalMode, cash })}
                   >{saveSale.isPending ? 'Saving…' : 'Save'}</button>
                   <button
                     className="btn btn-secondary"
                     style={{ width: '100%', justifyContent: 'center' }}
-                    disabled={saveSale.isPending}
+                    disabled={saveSale.isPending || isWalkInPartial}
                     onClick={() => handleSaveAndPrint(payModalMode, cash)}
                   >Print (Save + Print)</button>
                   <button
                     className="btn btn-secondary"
                     style={{ width: '100%', justifyContent: 'center' }}
-                    disabled={saveSale.isPending}
+                    disabled={saveSale.isPending || isWalkInPartial}
                     onClick={() => handleSaveAndShare(payModalMode, cash)}
                   >Share (Save + Share)</button>
                   <button
