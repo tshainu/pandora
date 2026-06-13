@@ -603,7 +603,7 @@ export default {
       }
       if (status) { conditions.push(`s.payment_status = ?`); binds.push(status); }
       if (url.searchParams.get('exclude_ordered') === '1') {
-        conditions.push(`s.id NOT IN (SELECT sale_id FROM orders WHERE sale_id IS NOT NULL)`);
+        conditions.push(`(s.is_ordered IS NULL OR s.is_ordered = 0)`);
         conditions.push(`s.payment_status != 'Draft'`);
       }
       const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -731,6 +731,10 @@ export default {
         `INSERT INTO orders (order_no,customer_id,order_date,delivery_date,status,production_status,progress,product,design_reference,fabric_details,printing_details,embroidery_details,accessories,production_notes,total_qty,total_amount,notes,sale_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
       ).bind(ono,b.customer_id||null,b.order_date,b.delivery_date||null,'New','Pending',0,b.product||null,b.design_reference||null,b.fabric_details||null,b.printing_details||null,b.embroidery_details||null,b.accessories||null,b.production_notes||null,b.total_qty||0,b.total_amount||0,b.notes||null,b.sale_id||null).run();
       const oid = r.meta.last_row_id;
+      // Mark the linked invoice as ordered so it won't appear in future searches
+      if (b.sale_id) {
+        await env.pandora_db.prepare(`UPDATE sales SET is_ordered=1 WHERE id=?`).bind(b.sale_id).run();
+      }
       for (const sz of (b.sizes||[])) {
         await env.pandora_db.prepare(`INSERT INTO order_sizes (order_id,size,qty,half,full,other,other_desc) VALUES (?,?,?,?,?,?,?)`).bind(oid,sz.size,sz.qty||0,sz.half||0,sz.full||0,sz.other||0,sz.other_desc||'').run();
       }
