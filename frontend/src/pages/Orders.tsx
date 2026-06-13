@@ -1965,8 +1965,8 @@ function SheetsSection({ orders, isLoading, search, setSearch, statusFilter, set
             return (
               <div key={o.id} className="card" style={{ padding: '16px 18px', borderLeft: `4px solid ${STATUS_COLOR[o.status] || 'var(--border)'}`, cursor: 'pointer' }}
                 onClick={() => onView(o.id)}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
-                  <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10, gap: 8 }}>
+                  <div style={{ minWidth: 0, flex: 1 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <CheckCircle size={15} style={{ color: '#16a34a', flexShrink: 0 }} />
                       <span style={{ fontWeight: 700, color: '#16a34a', fontSize: '0.9rem' }}>{o.order_no}</span>
@@ -1976,9 +1976,9 @@ function SheetsSection({ orders, isLoading, search, setSearch, statusFilter, set
                         INV: {o.invoice_no}
                       </div>
                     )}
-                    <div style={{ fontSize: '0.78rem', color: 'var(--text2)', marginTop: 2 }}>{o.customer_name}</div>
+                    <div style={{ fontSize: '0.78rem', color: 'var(--text2)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={o.customer_name}>{o.customer_name}</div>
                   </div>
-                  <span className={`badge ${STATUS_MAP[o.status] || 'badge-average'}`}>{o.status}</span>
+                  <span className={`badge ${STATUS_MAP[o.status] || 'badge-average'}`} style={{ flexShrink: 0 }}>{o.status}</span>
                 </div>
                 <div style={{ fontSize: '0.82rem', fontWeight: 500, marginBottom: 8 }}>{o.product || '—'}</div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 10 }}>
