@@ -699,7 +699,7 @@ export default {
       if (status) conditions.push(`o.status='${status}'`);
       if (search) conditions.push(`(c.name LIKE '%${search}%' OR o.order_no LIKE '%${search}%' OR o.product LIKE '%${search}%')`);
       if (conditions.length) where = ' WHERE ' + conditions.join(' AND ');
-      let q = `SELECT o.*, c.name customer_name FROM orders o LEFT JOIN customers c ON c.id=o.customer_id${where} ORDER BY o.created_at DESC`;
+      let q = `SELECT o.*, c.name customer_name, s.invoice_no FROM orders o LEFT JOIN customers c ON c.id=o.customer_id LEFT JOIN sales s ON s.id=o.sale_id${where} ORDER BY o.created_at DESC`;
       const rows = await env.pandora_db.prepare(q).all();
       const [stats, trend] = await Promise.all([
         env.pandora_db.prepare(`

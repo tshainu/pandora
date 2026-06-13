@@ -32,6 +32,7 @@ type NotesData = {
 type Order = {
   id: number; order_no: string; customer_id: number; customer_name: string;
   order_date: string; delivery_date: string; status: string; production_status: string;
+  sale_id?: number; invoice_no?: string;
   progress: number; product: string; design_reference: string; fabric_details: string;
   printing_details: string; embroidery_details: string; accessories: string;
   production_notes: string; total_qty: number; total_amount: number; notes: string;
@@ -1970,6 +1971,11 @@ function SheetsSection({ orders, isLoading, search, setSearch, statusFilter, set
                       <CheckCircle size={15} style={{ color: '#16a34a', flexShrink: 0 }} />
                       <span style={{ fontWeight: 700, color: '#16a34a', fontSize: '0.9rem' }}>{o.order_no}</span>
                     </div>
+                    {o.invoice_no && (
+                      <div style={{ fontSize: '0.7rem', color: 'var(--red)', fontWeight: 600, marginTop: 1, letterSpacing: '0.02em' }}>
+                        INV: {o.invoice_no}
+                      </div>
+                    )}
                     <div style={{ fontSize: '0.78rem', color: 'var(--text2)', marginTop: 2 }}>{o.customer_name}</div>
                   </div>
                   <span className={`badge ${STATUS_MAP[o.status] || 'badge-average'}`}>{o.status}</span>
