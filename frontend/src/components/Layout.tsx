@@ -1,41 +1,205 @@
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, ClipboardList, FileText, Star } from 'lucide-react';
+import {
+  LayoutDashboard, Users, ShoppingCart, Truck,
+  Receipt, ClipboardList, FileText, Star, DollarSign,
+  Settings, BarChart2, UserCheck, Boxes,
+  ShoppingBag, FileCheck, ChevronDown, ChevronRight,
+  LayoutGrid, List, FilePlus, Calendar, Plus, GitBranch, Building2, Scan,
+  Tag, Package
+} from 'lucide-react';
+import { useState } from 'react';
 
 const nav = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/customers', icon: Users, label: 'Customers' },
+  { to: '/suppliers', icon: Truck, label: 'Suppliers' },
+  { to: '/inventory', icon: Boxes, label: 'Inventory' },
+  { to: '/purchases', icon: ShoppingCart, label: 'Purchases' },
+  { to: '/expenses', icon: DollarSign, label: 'Expenses' },
+  { to: '/reports', icon: BarChart2, label: 'Reports' },
+  { to: '/settings', icon: Settings, label: 'Settings' },
+];
+
+const salesSub = [
+  { hash: 'pos', icon: ShoppingBag, label: 'POS', path: null },
+  { hash: 'list', icon: FileCheck, label: 'List of Sales', path: null },
+  { hash: 'quotations', icon: FileText, label: 'Quotations', path: null },
+];
+const salesPages = [
+  { to: '/price-groups', icon: Tag, label: 'Price Groups' },
+  { to: '/addon-items', icon: Package, label: 'Add-on Items' },
+];
+
+const ordersSub = [
+  { hash: 'dashboard', icon: LayoutGrid, label: 'Dashboard' },
+  { hash: 'list', icon: List, label: 'List of Orders' },
+  { hash: 'create-sheet', icon: FilePlus, label: 'Create Order Sheet' },
+  { hash: 'sheets', icon: FileCheck, label: 'Order Sheets' },
+  { hash: 'calendar', icon: Calendar, label: 'Calendar' },
+];
+
+const staffSub = [
+  { hash: 'list', icon: Users, label: 'Staff List' },
+  { hash: 'add', icon: Plus, label: 'Add New' },
+  { hash: 'teams', icon: GitBranch, label: 'Teams' },
+  { hash: 'departments', icon: Building2, label: 'Departments' },
+];
+
+const hrNav = [
   { to: '/employees', icon: Users, label: 'Employees' },
   { to: '/evaluate', icon: Star, label: 'New Evaluation' },
-  { to: '/evaluations', icon: ClipboardList, label: 'Evaluations' },
-  { to: '/reports', icon: FileText, label: 'Reports' },
+  { to: '/evaluations', icon: FileText, label: 'Evaluations' },
 ];
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const loc = useLocation();
+  const onSales = loc.pathname === '/sales' || loc.pathname.startsWith('/sales') || loc.pathname === '/price-groups' || loc.pathname === '/addon-items';
+  const onOrders = loc.pathname === '/orders' || loc.pathname.startsWith('/orders');
+  const onStaff = loc.pathname === '/staff' || loc.pathname.startsWith('/staff');
+  const [salesOpen, setSalesOpen] = useState(onSales);
+  const [ordersOpen, setOrdersOpen] = useState(onOrders);
+  const [staffOpen, setStaffOpen] = useState(onStaff);
+
+  const isActive = (to: string) =>
+    to === '/' ? loc.pathname === '/' : loc.pathname.startsWith(to);
+
+  const activeHash = loc.hash.replace('#', '') || 'pos';
+
+  const expandBtn = (label: string, icon: React.ElementType, isOn: boolean, toggle: () => void, open: boolean) => {
+    const Icon = icon;
+    return (
+      <button
+        onClick={toggle}
+        className={isOn ? 'active' : ''}
+        style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', fontSize: '0.8rem', fontWeight: 700, color: isOn ? 'var(--red)' : 'var(--text2)', borderLeft: `3px solid ${isOn ? 'var(--red)' : 'transparent'}`, transition: 'all 0.15s', justifyContent: 'space-between' }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Icon size={15} /> {label}
+        </span>
+        {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+      </button>
+    );
+  };
+
   return (
     <div className="layout">
       <aside className="sidebar">
         <div className="sidebar-logo">
-          <h1>Pandora<br/>Garments</h1>
-          <p>Performance Evaluation System</p>
+          <h1>Pandora<br />Garments</h1>
+          <p>Management System v2</p>
         </div>
         <nav className="sidebar-nav">
-          {nav.map(({ to, icon: Icon, label }) => (
-            <Link key={to} to={to} className={loc.pathname === to ? 'active' : ''}>
-              <Icon size={16} /> {label}
+          {/* Dashboard + Customers + Suppliers + Inventory + Purchases */}
+          {nav.slice(0, 5).map(({ to, icon: Icon, label }) => (
+            <Link key={to} to={to} className={isActive(to) ? 'active' : ''}>
+              <Icon size={15} /> {label}
+            </Link>
+          ))}
+
+          {/* Sales — expandable */}
+          {expandBtn('Sales', Receipt, onSales, () => setSalesOpen(o => !o), salesOpen)}
+          {salesOpen && (
+            <div style={{ paddingLeft: 12 }}>
+              {salesSub.map(({ hash, icon: Icon, label }) => (
+                <Link
+                  key={hash}
+                  to={`/sales#${hash}`}
+                  className={`sidebar-sub-item${(onSales && loc.pathname === '/sales' && (activeHash === hash || (hash === 'quotations' && activeHash === 'new-quotation'))) ? ' active' : ''}`}
+                >
+                  <Icon size={13} /> {label}
+                </Link>
+              ))}
+              <div style={{ height: 1, background: 'var(--border)', margin: '4px 4px 4px 0' }} />
+              {salesPages.map(({ to, icon: Icon, label }) => (
+                <Link
+                  key={to}
+                  to={to}
+                  className={`sidebar-sub-item${loc.pathname === to ? ' active' : ''}`}
+                >
+                  <Icon size={13} /> {label}
+                </Link>
+              ))}
+            </div>
+          )}
+
+          {/* Order Management — expandable */}
+          {expandBtn('Order Management', ClipboardList, onOrders, () => setOrdersOpen(o => !o), ordersOpen)}
+          {ordersOpen && (
+            <div style={{ paddingLeft: 12 }}>
+              {ordersSub.map(({ hash, icon: Icon, label }) => (
+                <Link
+                  key={hash}
+                  to={`/orders#${hash}`}
+                  className={`sidebar-sub-item${(onOrders && activeHash === hash) ? ' active' : ''}`}
+                >
+                  <Icon size={13} /> {label}
+                </Link>
+              ))}
+            </div>
+          )}
+
+          {/* Staff Management — expandable */}
+          {expandBtn('Staff Management', UserCheck, onStaff, () => setStaffOpen(o => !o), staffOpen)}
+          {staffOpen && (
+            <div style={{ paddingLeft: 12 }}>
+              {staffSub.map(({ hash, icon: Icon, label }) => (
+                <Link
+                  key={hash}
+                  to={`/staff#${hash}`}
+                  className={`sidebar-sub-item${(onStaff && activeHash === hash) ? ' active' : ''}`}
+                >
+                  <Icon size={13} /> {label}
+                </Link>
+              ))}
+            </div>
+          )}
+
+          {/* Expenses, Reports, Settings */}
+          {nav.slice(5).map(({ to, icon: Icon, label }) => (
+            <Link key={to} to={to} className={isActive(to) ? 'active' : ''}>
+              <Icon size={15} /> {label}
+            </Link>
+          ))}
+
+          <div style={{ padding: '8px 16px 4px', fontSize: '0.65rem', fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: 8 }}>
+            HR Module
+          </div>
+          {hrNav.map(({ to, icon: Icon, label }) => (
+            <Link key={to} to={to} className={isActive(to) ? 'active' : ''}>
+              <Icon size={15} /> {label}
             </Link>
           ))}
         </nav>
-        <div style={{ padding: '16px', borderTop: '1px solid var(--border)' }}>
+        <div style={{ padding: '14px 16px', borderTop: '1px solid var(--border)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--red)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: '0.85rem' }}>PG</div>
+            <div style={{ width: 30, height: 30, borderRadius: 8, background: 'var(--red)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: '0.75rem', flexShrink: 0 }}>PG</div>
             <div>
-              <div style={{ fontSize: '0.78rem', fontWeight: 600 }}>Admin</div>
-              <div style={{ fontSize: '0.68rem', color: 'var(--text3)' }}>HR Manager</div>
+              <div style={{ fontSize: '0.75rem', fontWeight: 600 }}>Admin</div>
+              <div style={{ fontSize: '0.65rem', color: 'var(--text3)' }}>Manager</div>
             </div>
           </div>
         </div>
       </aside>
-      <main className="main">{children}</main>
+      <main className="main">
+        {!(onSales && activeHash === 'pos') && !(onOrders && (activeHash === 'create-sheet')) && (
+          <Link
+            to="/sales#pos"
+            style={{
+              position: 'fixed', bottom: 28, right: 28, zIndex: 200,
+              display: 'flex', alignItems: 'center', gap: 8,
+              background: 'var(--red)', color: '#fff',
+              padding: '12px 20px', borderRadius: 50,
+              fontSize: '0.85rem', fontWeight: 700, textDecoration: 'none',
+              boxShadow: '0 4px 16px rgba(192,0,26,0.45)',
+              transition: 'transform 0.15s, box-shadow 0.15s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.06)'; e.currentTarget.style.boxShadow = '0 6px 22px rgba(192,0,26,0.55)'; }}
+            onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(192,0,26,0.45)'; }}
+          >
+            <Scan size={16} /> POS
+          </Link>
+        )}
+        {children}
+      </main>
     </div>
   );
 }

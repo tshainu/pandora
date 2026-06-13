@@ -1,27 +1,34 @@
-# Pandora Rebuild Task
+# Pandora v2 - Full Rebuild Task
 
 ## Stack
 - Frontend: React + TypeScript + Vite (port 5173)
-- Backend: PHP 8.4 built-in server (port 8787)
-- DB: MariaDB (pandora_db)
+- Backend: Cloudflare Worker (src/index.ts)
+- DB: Cloudflare D1 (pandora-db)
+- Deploy: CF Pages (pandora-garments.pages.dev) + CF Worker
+
+## Modules to Build
+- [x] KPI Management (existing, keep)
+- [ ] Dashboard (executive, charts, alerts)
+- [ ] Customer Management
+- [ ] Supplier Management
+- [ ] Inventory Management
+- [ ] Purchase Management
+- [ ] Sales Management (POS + Quotations)
+- [ ] Order Management (order sheets, calendar)
+- [ ] Staff Management (teams, departments)
+- [ ] Expense Management
+- [ ] Settings (company, users, roles)
+- [ ] Reports (all types)
+
+## Auth
+- Skip for now
+
+## DB Plan
+- Extend existing D1 (keep employees + evaluations tables)
+- Add new tables for all modules
 
 ## Status
-- [x] MariaDB setup + pandora_db created
-- [x] PHP backend (api.php, router.php, db.php, migrate.php)
-- [x] DB migrated (employees + evaluations tables)
-- [x] PHP server running on 8787
-- [x] React project scaffolded + deps installed
-- [x] api.ts client
-- [x] index.css (full design system)
-- [x] Layout.tsx
-- [x] GradeBadge.tsx
-
-## In Progress
-- [ ] Dashboard.tsx
-- [ ] Employees.tsx
-- [ ] Evaluate.tsx
-- [ ] Evaluations.tsx
-- [ ] Reports.tsx
-- [ ] App.tsx + main.tsx
-- [ ] Vite config proxy
-- [ ] Start frontend
+- [ ] D1 schema (new tables)
+- [ ] Worker API routes
+- [ ] Frontend pages
+- [ ] Deploy
