@@ -70,9 +70,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     return (
       <button
         onClick={toggle}
-        className={isOn ? 'active' : ''}
-        style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', fontSize: '0.8rem', fontWeight: 700, color: isOn ? 'var(--red)' : 'var(--text2)', borderLeft: `3px solid ${isOn ? 'var(--red)' : 'transparent'}`, transition: 'all 0.15s', justifyContent: 'space-between' }}>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        className={`sidebar-group-btn${isOn ? ' active' : ''}`}
+        style={{ color: isOn ? 'var(--red)' : undefined, borderLeftColor: isOn ? 'var(--red)' : undefined }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <Icon size={15} /> {label}
         </span>
         {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}

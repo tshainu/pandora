@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api';
 import {
-  AreaChart, Area, BarChart, Bar, XAxis, YAxis,
+  BarChart, Bar, XAxis, YAxis,
   Tooltip, ResponsiveContainer, PieChart, Pie, Cell,
   CartesianGrid
 } from 'recharts';
@@ -22,33 +22,18 @@ export default function Dashboard() {
 
   if (!d) return null;
 
-  // Merge salesTrend + expenseTrend into one dataset keyed by month
-  const salesMap: Record<string, number> = {};
-  const expenseMap: Record<string, number> = {};
-  (d.salesTrend || []).forEach((r: { m: string; total: number }) => { salesMap[r.m] = r.total; });
-  (d.expenseTrend || []).forEach((r: { m: string; total: number }) => { expenseMap[r.m] = r.total; });
-  const allMonths = Array.from(new Set([...Object.keys(salesMap), ...Object.keys(expenseMap)])).sort();
-
-  // Pad to at least 2 months so Recharts can draw a line
-  if (allMonths.length === 1) {
-    const [y, mo] = allMonths[0].split('-').map(Number);
-    const prev = mo === 1
-      ? `${y - 1}-12`
-      : `${y}-${String(mo - 1).padStart(2, '0')}`;
-    allMonths.unshift(prev);
-  }
-
-  const trendData = allMonths.map(m => ({
-    month: m.slice(0, 7),
-    revenue: salesMap[m] || 0,
-    expenses: expenseMap[m] || 0,
-    profit: Math.max(0, (salesMap[m] || 0) - (expenseMap[m] || 0)),
-  }));
-
   const orderStatusDist = (d.orderStatusDist || []).map((r: { status: string; c: number }) => ({ status: r.status, count: r.c }));
   const topCustomers = d.topCustomers || [];
   const recentOrders = d.recentOrders || [];
   const upcomingDeliveries = d.upcomingDeliveries || [];
+
+  // Daily Revenue vs Expenses for the current month (x-axis = days 1..31)
+  const thisMonthLabel = new Date().toLocaleDateString('en-LK', { month: 'long', year: 'numeric' });
+  const dailyData = (d.dailyTrend || []).map((r: { day: number; revenue: number; expenses: number }) => ({
+    day: r.day,
+    revenue: r.revenue || 0,
+    expenses: r.expenses || 0,
+  }));
 
   return (
     <div>
@@ -92,61 +77,44 @@ export default function Dashboard() {
           <KpiCard icon={<Users size={20} />} color="#1565C0" label="HR: Avg KPI Score" value={`${d.avgKpi || 0}%`} sub={`${d.totalEmployees || 0} employees`} />
         </div>
 
-        {/* Charts row 1 — full-width multi-series trend */}
+        {/* Charts row 1 — this month Revenue vs Expenses */}
         <div className="card" style={{ marginBottom: 16 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-            <div className="card-title" style={{ marginBottom: 0 }}>Revenue, Expenses & Profit Trend</div>
+            <div className="card-title" style={{ marginBottom: 0 }}>Revenue vs Expenses — {thisMonthLabel}</div>
             <div style={{ display: 'flex', gap: 16, fontSize: '0.75rem', color: 'var(--text3)' }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><span style={{ width: 24, height: 2, background: '#4E6FFF', display: 'inline-block', borderRadius: 2 }} /> Revenue</span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><span style={{ width: 24, height: 2, background: '#FF9F43', display: 'inline-block', borderRadius: 2 }} /> Expenses</span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><span style={{ width: 24, height: 2, background: '#28C76F', display: 'inline-block', borderRadius: 2 }} /> Profit</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><span style={{ width: 12, height: 12, background: '#4E6FFF', display: 'inline-block', borderRadius: 3 }} /> Revenue</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><span style={{ width: 12, height: 12, background: '#FF9F43', display: 'inline-block', borderRadius: 3 }} /> Expenses</span>
             </div>
           </div>
-          {trendData.length === 0
-            ? <div className="empty"><div className="empty-icon">📈</div><p>No trend data yet</p></div>
-            : (
-              <ResponsiveContainer width="100%" height={220}>
-                <AreaChart data={trendData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="gRev" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#4E6FFF" stopOpacity={0.18} />
-                      <stop offset="95%" stopColor="#4E6FFF" stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient id="gExp" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#FF9F43" stopOpacity={0.15} />
-                      <stop offset="95%" stopColor="#FF9F43" stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient id="gPro" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#28C76F" stopOpacity={0.15} />
-                      <stop offset="95%" stopColor="#28C76F" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <XAxis
-                    dataKey="month"
-                    tick={{ fontSize: 11, fill: '#999' }}
-                    axisLine={false}
-                    tickLine={false}
-                    dy={6}
-                  />
-                  <YAxis
-                    tick={{ fontSize: 11, fill: '#999' }}
-                    axisLine={false}
-                    tickLine={false}
-                    tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
-                    width={38}
-                  />
-                  <CartesianGrid stroke="#F3F3F3" strokeDasharray="" vertical={false} />
-                  <Tooltip
-                    contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)', fontSize: 12 }}
-                    formatter={(v, name) => [fmt(Number(v)), String(name).charAt(0).toUpperCase() + String(name).slice(1)]}
-                    labelStyle={{ fontWeight: 600, marginBottom: 4 }}
-                  />
-                  <Area type="monotone" dataKey="revenue" stroke="#4E6FFF" strokeWidth={2.5} fill="url(#gRev)" dot={{ r: 4, fill: '#4E6FFF', strokeWidth: 0 }} activeDot={{ r: 6 }} />
-                  <Area type="monotone" dataKey="expenses" stroke="#FF9F43" strokeWidth={2.5} fill="url(#gExp)" dot={{ r: 4, fill: '#FF9F43', strokeWidth: 0 }} activeDot={{ r: 6 }} />
-                  <Area type="monotone" dataKey="profit" stroke="#28C76F" strokeWidth={2.5} fill="url(#gPro)" dot={{ r: 4, fill: '#28C76F', strokeWidth: 0 }} activeDot={{ r: 6 }} />
-                </AreaChart>
-              </ResponsiveContainer>
-            )}
+          <ResponsiveContainer width="100%" height={240}>
+            <BarChart data={dailyData} margin={{ top: 16, right: 10, left: 0, bottom: 0 }} barGap={2} barCategoryGap="20%">
+              <XAxis
+                dataKey="day"
+                tick={{ fontSize: 10, fill: '#999' }}
+                axisLine={false}
+                tickLine={false}
+                interval={0}
+                dy={6}
+              />
+              <YAxis
+                tick={{ fontSize: 11, fill: '#999' }}
+                axisLine={false}
+                tickLine={false}
+                tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
+                width={38}
+              />
+              <CartesianGrid stroke="#F3F3F3" strokeDasharray="" vertical={false} />
+              <Tooltip
+                cursor={{ fill: 'rgba(0,0,0,0.04)' }}
+                contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)', fontSize: 12 }}
+                formatter={(v, name) => [fmt(Number(v)), String(name).charAt(0).toUpperCase() + String(name).slice(1)]}
+                labelFormatter={(l) => `Day ${l}`}
+                labelStyle={{ fontWeight: 600, marginBottom: 4 }}
+              />
+              <Bar dataKey="revenue" name="revenue" fill="#4E6FFF" radius={[3, 3, 0, 0]} maxBarSize={14} />
+              <Bar dataKey="expenses" name="expenses" fill="#FF9F43" radius={[3, 3, 0, 0]} maxBarSize={14} />
+            </BarChart>
+          </ResponsiveContainer>
         </div>
 
         {/* Charts row 2 — pie + bar + recent orders */}

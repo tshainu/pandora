@@ -105,11 +105,12 @@ export const api = {
   updatePurchase: (id: number, data: object) => req(`/purchases/${id}`, 'PUT', data),
 
   // ── Sales / Invoices ─────────────────────────────────────
-  getInvoices: (params?: { search?: string; customer_id?: number; status?: string }) => {
+  getInvoices: (params?: { search?: string; customer_id?: number; status?: string; exclude_ordered?: boolean }) => {
     const qs = new URLSearchParams();
     if (params?.search) qs.set('search', params.search);
     if (params?.customer_id) qs.set('customer_id', String(params.customer_id));
     if (params?.status) qs.set('status', params.status);
+    if (params?.exclude_ordered) qs.set('exclude_ordered', '1');
     return req(`/sales?${qs}`).then(d => d.sales);
   },
   getInvoice: (id: number) => req(`/sales/${id}`).then(d => d),

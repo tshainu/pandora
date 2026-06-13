@@ -1,4 +1,4 @@
-export interface Env { pandora_db: D1Database; }
+export interface Env { pandora_db: D1Database; ASSETS: Fetcher; }
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -53,6 +53,18 @@ export default {
     const path = url.pathname;
     const method = request.method;
     if (method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
+
+    // Browser navigation requests (page loads / refreshes / deep links) want HTML.
+    // Serve the SPA for these even when the path collides with an API route name,
+    // so client-side routes like /customers work on direct load & refresh.
+    const isNavigation =
+      method === 'GET' &&
+      (request.headers.get('Sec-Fetch-Mode') === 'navigate' ||
+        (request.headers.get('Accept') || '').includes('text/html'));
+    if (isNavigation && path !== '/' && !path.startsWith('/assets/')) {
+      return env.ASSETS.fetch(request);
+    }
+
     if (path === '/health') return json({ status: 'ok' });
 
     // ─── DASHBOARD ───────────────────────────────────────────────────────────
@@ -69,7 +81,8 @@ export default {
         topCustomers, gradeDistRaw, deptPerf, topEmployees,
         evaluatedCount, avgScore, excellent, needsImprovement,
         attendanceIssues, promotionCandidates, salaryIncrementCandidates,
-        delayedOrders, uncollectedOrders, upcomingDeliveries, recentOrders
+        delayedOrders, uncollectedOrders, upcomingDeliveries, recentOrders,
+        dailySales, dailyExpenses
       ] = await Promise.all([
         env.pandora_db.prepare("SELECT COUNT(*) c FROM customers WHERE status='Active'").first<any>(),
         env.pandora_db.prepare("SELECT COUNT(*) c FROM orders WHERE status NOT IN ('Delivered','Collected','Cancelled')").first<any>(),
@@ -98,7 +111,22 @@ export default {
         env.pandora_db.prepare("SELECT COUNT(*) c FROM orders WHERE status='Ready'").first<any>(),
         env.pandora_db.prepare("SELECT o.id,o.order_no,c.name customer_name,o.delivery_date,o.status FROM orders o LEFT JOIN customers c ON c.id=o.customer_id WHERE o.delivery_date BETWEEN date('now') AND date('now','+7 days') AND o.status NOT IN ('Delivered','Collected','Cancelled') ORDER BY o.delivery_date ASC LIMIT 10").all(),
         env.pandora_db.prepare("SELECT o.id,o.order_no,c.name customer_name,o.delivery_date,o.status FROM orders o LEFT JOIN customers c ON c.id=o.customer_id ORDER BY o.created_at DESC LIMIT 10").all(),
+        env.pandora_db.prepare(`SELECT CAST(strftime('%d', sale_date) AS INTEGER) d, ROUND(SUM(total_amount),2) total FROM sales WHERE strftime('%Y-%m', sale_date)=${month ? "?" : "strftime('%Y-%m','now')"} GROUP BY d`).bind(...(month ? [month] : [])).all(),
+        env.pandora_db.prepare(`SELECT CAST(strftime('%d', expense_date) AS INTEGER) d, ROUND(SUM(amount),2) total FROM expenses WHERE strftime('%Y-%m', expense_date)=${month ? "?" : "strftime('%Y-%m','now')"} GROUP BY d`).bind(...(month ? [month] : [])).all(),
       ]);
+
+      // Build a full 1..daysInMonth daily series for revenue vs expenses
+      const dtMonth = month || new Date().toISOString().slice(0, 7);
+      const [dtY, dtM] = dtMonth.split('-').map(Number);
+      const daysInMonth = new Date(dtY, dtM, 0).getDate();
+      const dSalesMap: Record<number, number> = {};
+      const dExpMap: Record<number, number> = {};
+      (dailySales.results as any[]).forEach(r => { dSalesMap[r.d] = r.total; });
+      (dailyExpenses.results as any[]).forEach(r => { dExpMap[r.d] = r.total; });
+      const dailyTrend = Array.from({ length: daysInMonth }, (_, i) => {
+        const day = i + 1;
+        return { day, revenue: dSalesMap[day] || 0, expenses: dExpMap[day] || 0 };
+      });
 
       const monthlySalesVal = monthlySales?.s ?? 0;
       const monthlyExpensesVal = monthlyExpenses?.s ?? 0;
@@ -121,6 +149,7 @@ export default {
         // charts
         salesTrend: salesTrend.results.reverse(),
         expenseTrend: expenseTrend.results.reverse(),
+        dailyTrend,
         orderStatusDist: orderStatusDist.results,
         topCustomers: topCustomers.results,
         // KPI
@@ -573,6 +602,9 @@ export default {
         binds.push(`%${search}%`, `%${search}%`);
       }
       if (status) { conditions.push(`s.payment_status = ?`); binds.push(status); }
+      if (url.searchParams.get('exclude_ordered') === '1') {
+        conditions.push(`s.id NOT IN (SELECT sale_id FROM orders WHERE sale_id IS NOT NULL)`);
+      }
       const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
       const rows = await env.pandora_db.prepare(`
         SELECT s.*, c.name customer_name FROM sales s LEFT JOIN customers c ON c.id=s.customer_id ${where} ORDER BY s.created_at DESC`).bind(...binds).all();
@@ -695,8 +727,8 @@ export default {
       const b = await request.json() as any;
       const ono = await nextSeq(env.pandora_db, 'order_seq', 'ORD');
       const r = await env.pandora_db.prepare(
-        `INSERT INTO orders (order_no,customer_id,order_date,delivery_date,status,production_status,progress,product,design_reference,fabric_details,printing_details,embroidery_details,accessories,production_notes,total_qty,total_amount,notes) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
-      ).bind(ono,b.customer_id||null,b.order_date,b.delivery_date||null,'New','Pending',0,b.product||null,b.design_reference||null,b.fabric_details||null,b.printing_details||null,b.embroidery_details||null,b.accessories||null,b.production_notes||null,b.total_qty||0,b.total_amount||0,b.notes||null).run();
+        `INSERT INTO orders (order_no,customer_id,order_date,delivery_date,status,production_status,progress,product,design_reference,fabric_details,printing_details,embroidery_details,accessories,production_notes,total_qty,total_amount,notes,sale_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+      ).bind(ono,b.customer_id||null,b.order_date,b.delivery_date||null,'New','Pending',0,b.product||null,b.design_reference||null,b.fabric_details||null,b.printing_details||null,b.embroidery_details||null,b.accessories||null,b.production_notes||null,b.total_qty||0,b.total_amount||0,b.notes||null,b.sale_id||null).run();
       const oid = r.meta.last_row_id;
       for (const sz of (b.sizes||[])) {
         await env.pandora_db.prepare(`INSERT INTO order_sizes (order_id,size,qty,half,full,other,other_desc) VALUES (?,?,?,?,?,?,?)`).bind(oid,sz.size,sz.qty||0,sz.half||0,sz.full||0,sz.other||0,sz.other_desc||'').run();
@@ -1056,6 +1088,19 @@ export default {
       }
     }
 
-    return err('Not found', 404);
+    // ─── STATIC ASSETS / SPA ─────────────────────────────────────────────────
+    // Known API prefixes return JSON 404; everything else serves the frontend.
+    const API_PREFIXES = [
+      '/health', '/dashboard', '/customers', '/customer-types', '/suppliers',
+      '/items', '/inventory', '/stock-history', '/purchases', '/purchase-items',
+      '/sales', '/sale-items', '/quotations', '/quotation-items', '/orders',
+      '/staff', '/teams', '/departments', '/employees', '/evaluations',
+      '/expenses', '/reports', '/settings', '/company-settings', '/price-groups',
+      '/addon-items', '/order-',
+    ];
+    if (API_PREFIXES.some(p => path === p || path.startsWith(p + '/') || path.startsWith(p))) {
+      return err('Not found', 404);
+    }
+    return env.ASSETS.fetch(request);
   },
 };

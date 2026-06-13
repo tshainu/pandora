@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import type { ReactNode } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { api } from '../api';
@@ -379,7 +380,7 @@ export default function OrderManagement() {
           <OrderForm
             form={form} setForm={setForm}
             customers={customers as { id: number; name: string }[]}
-            onSave={() => save.mutate(formToApi(form))}
+            onSave={(saleId?: number) => save.mutate({ ...formToApi(form), ...(saleId ? { sale_id: saleId } : {}) })}
             onCancel={() => setForm(blankForm())}
             isSaving={save.isPending}
             toggleSize={(sz) => toggleSize(sz, form, setForm)}
@@ -558,7 +559,7 @@ type CustomerDetail = { id: number; name: string; phone?: string; mobile?: strin
 function OrderForm({ form, setForm, customers, onSave, onCancel, isSaving, toggleSize, updateSizeQty: _updateSizeQty, updateSizeSleeveQty, updateSizeOtherDesc, toggleBottomSize, updateBottomSizeSleeveQty, updateBottomSizeOtherDesc, mode }: {
   form: FormShape; setForm: (v: FormShape | ((prev: FormShape) => FormShape)) => void;
   customers: { id: number; name: string }[];
-  onSave: () => void; onCancel: () => void; isSaving: boolean;
+  onSave: (saleId?: number) => void; onCancel: () => void; isSaving: boolean;
   toggleSize: (sz: string) => void;
   updateSizeQty: (sz: string, qty: number) => void;
   updateSizeSleeveQty: (sz: string, key: 'half' | 'full' | 'other', val: number) => void;
@@ -764,7 +765,7 @@ function OrderForm({ form, setForm, customers, onSave, onCancel, isSaving, toggl
     if (!q.trim()) { setInvResults([]); setInvDropOpen(false); return; }
     setInvLoading(true);
     try {
-      const res = await api.getInvoices({ search: q });
+      const res = await api.getInvoices({ search: q, exclude_ordered: true });
       setInvResults((res || []).slice(0, 8));
       setInvDropOpen(true);
     } catch (_) { setInvResults([]); }
@@ -1591,7 +1592,7 @@ function OrderForm({ form, setForm, customers, onSave, onCancel, isSaving, toggl
         <button className="btn btn-secondary" onClick={onCancel}>
           {mode === 'create' ? 'Clear' : 'Cancel'}
         </button>
-        <button className="btn btn-primary" disabled={isSaving || !form.customer_id} onClick={onSave} style={{ minWidth: 150 }}>
+        <button className="btn btn-primary" disabled={isSaving || !form.customer_id} onClick={() => onSave(selectedInvoice?.id)} style={{ minWidth: 150 }}>
           {isSaving ? (mode === 'create' ? 'Creating…' : 'Saving…') : (mode === 'create' ? 'Create Order Sheet' : 'Save Changes')}
         </button>
       </div>
@@ -1965,7 +1966,10 @@ function SheetsSection({ orders, isLoading, search, setSearch, statusFilter, set
                 onClick={() => onView(o.id)}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
                   <div>
-                    <div style={{ fontWeight: 700, color: 'var(--red)', fontSize: '0.9rem' }}>{o.order_no}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <CheckCircle size={15} style={{ color: '#16a34a', flexShrink: 0 }} />
+                      <span style={{ fontWeight: 700, color: '#16a34a', fontSize: '0.9rem' }}>{o.order_no}</span>
+                    </div>
                     <div style={{ fontSize: '0.78rem', color: 'var(--text2)', marginTop: 2 }}>{o.customer_name}</div>
                   </div>
                   <span className={`badge ${STATUS_MAP[o.status] || 'badge-average'}`}>{o.status}</span>
@@ -2335,35 +2339,60 @@ function ViewModal({ order, onClose, onEdit, onStatusChange, onDelete }: {
     document.body.classList.remove('printing-order');
   };
 
+  const statusColor = STATUS_COLOR[order.status] || '#6366f1';
+
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal modal-lg" onClick={e => e.stopPropagation()}>
-        <div className="modal-header">
-          <div>
-            <h3 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              {order.order_no}
-              <span className={`badge ${STATUS_MAP[order.status] || 'badge-average'}`}>{order.status}</span>
-            </h3>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text3)', marginTop: 2 }}>{order.customer_name} — {order.product || 'No product'}</div>
+      <div className="modal modal-lg om-modal" onClick={e => e.stopPropagation()}>
+        {/* Modern hero header */}
+        <div className="om-hero screen-only" style={{ background: `linear-gradient(135deg, ${statusColor}14 0%, #ffffff 70%)`, borderTop: `3px solid ${statusColor}` }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+            <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
+              <div className="om-hero-icon" style={{ background: statusColor }}>
+                <CheckCircle size={22} color="#fff" />
+              </div>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '1.25rem', fontWeight: 800, color: '#16a34a', letterSpacing: '-0.01em' }}>{order.order_no}</span>
+                  <span className="om-status-pill" style={{ background: `${statusColor}1a`, color: statusColor }}>{order.status}</span>
+                </div>
+                <div style={{ fontSize: '0.82rem', color: 'var(--text2)', marginTop: 3, fontWeight: 500 }}>
+                  {order.customer_name} · {order.product || 'No product'}
+                </div>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button className="btn btn-secondary btn-sm" onClick={handlePrint} style={{ gap: 5 }}>
+                <Printer size={13} /> Print
+              </button>
+              <button className="btn btn-secondary btn-sm" onClick={onEdit}><Edit2 size={13} /> Edit</button>
+              <button className="btn-icon" onClick={onClose}><X size={16} /></button>
+            </div>
           </div>
-          <div style={{ display: 'flex', gap: 6 }}>
-            <button className="btn btn-secondary btn-sm" onClick={handlePrint} style={{ gap: 5 }}>
-              <Printer size={13} /> Print
-            </button>
-            <button className="btn btn-secondary btn-sm" onClick={onEdit}><Edit2 size={13} /> Edit</button>
-            <button className="btn-icon" onClick={onClose}><X size={16} /></button>
-          </div>
+        </div>
+        {/* Print-only header (kept minimal for print path) */}
+        <div className="modal-header print-only" style={{ display: 'none' }}>
+          <h3>{order.order_no}</h3>
         </div>
         <div className="modal-body">
           {/* Screen view */}
           <div className="screen-only">
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 18 }}>
-              <Field label="Order Date" value={fmtDate(order.order_date)} />
-              <Field label="Delivery Date" value={fmtDate(order.delivery_date)} />
-              <Field label="Total Qty" value={`${order.total_qty || 0} pcs`} />
-              <Field label="Total Amount" value={fmt(order.total_amount)} />
-              <Field label="Production Status" value={order.production_status || '—'} />
-              <Field label="Progress" value={`${order.progress || 0}%`} />
+            <div className="om-stat-grid">
+              <StatTile icon={<Clock size={16} />} label="Order Date" value={fmtDate(order.order_date)} tint="#6366f1" />
+              <StatTile icon={<Clock size={16} />} label="Delivery Date" value={fmtDate(order.delivery_date)} tint="#f59e0b" />
+              <StatTile icon={<Shirt size={16} />} label="Total Qty" value={`${order.total_qty || 0} pcs`} tint="#0ea5e9" />
+              <StatTile icon={<TrendingUp size={16} />} label="Total Amount" value={fmt(order.total_amount)} tint="#16a34a" />
+            </div>
+            <div className="om-stat-grid" style={{ marginBottom: 18 }}>
+              <StatTile icon={<CheckCircle size={16} />} label="Production Status" value={order.production_status || '—'} tint="#8b5cf6" />
+              <div className="om-progress-tile">
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: 'var(--text3)', fontWeight: 600, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  <span>Progress</span><span style={{ color: 'var(--text)' }}>{order.progress || 0}%</span>
+                </div>
+                <div style={{ height: 8, borderRadius: 99, background: '#eef0f3', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${Math.min(100, order.progress || 0)}%`, borderRadius: 99, background: statusColor, transition: 'width .3s' }} />
+                </div>
+              </div>
             </div>
 
             {order.sizes && order.sizes.length > 0 && (
@@ -2433,16 +2462,21 @@ function ViewModal({ order, onClose, onEdit, onStatusChange, onDelete }: {
               </div>
             ))}
 
-            <div style={{ marginTop: 16, borderTop: '1px solid var(--border)', paddingTop: 14 }}>
-              <div style={{ fontSize: '0.75rem', fontWeight: 600, marginBottom: 8, color: 'var(--text2)' }}>Update Status</div>
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                {STATUSES.map(s => (
-                  <button key={s} className={`btn btn-sm ${order.status === s ? 'btn-primary' : 'btn-secondary'}`}
-                    style={{ borderColor: order.status === s ? undefined : STATUS_COLOR[s], color: order.status === s ? '#fff' : STATUS_COLOR[s] }}
-                    onClick={() => onStatusChange(s)}>
-                    {s}
-                  </button>
-                ))}
+            <div style={{ marginTop: 18, borderTop: '1px solid var(--border)', paddingTop: 16 }}>
+              <div style={{ fontSize: '0.72rem', fontWeight: 700, marginBottom: 10, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Update Status</div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {STATUSES.map(s => {
+                  const on = order.status === s;
+                  return (
+                    <button key={s} className="om-status-btn"
+                      style={on
+                        ? { background: STATUS_COLOR[s], color: '#fff', borderColor: STATUS_COLOR[s] }
+                        : { background: '#fff', color: STATUS_COLOR[s], borderColor: `${STATUS_COLOR[s]}55` }}
+                      onClick={() => onStatusChange(s)}>
+                      {on && <CheckCircle size={13} />} {s}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -2456,6 +2490,19 @@ function ViewModal({ order, onClose, onEdit, onStatusChange, onDelete }: {
           <button className="btn btn-secondary" style={{ color: '#ef4444', borderColor: '#fecaca' }} onClick={onDelete}><Trash2 size={13} /> Delete</button>
           <button className="btn btn-secondary" onClick={onClose}>Close</button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── StatTile helper (modern view modal) ─────────────────────────────────────
+function StatTile({ icon, label, value, tint }: { icon: ReactNode; label: string; value?: string | number; tint: string }) {
+  return (
+    <div className="om-stat-tile">
+      <div className="om-stat-icon" style={{ background: `${tint}1a`, color: tint }}>{icon}</div>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: '0.66rem', color: 'var(--text3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{label}</div>
+        <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{value || '—'}</div>
       </div>
     </div>
   );

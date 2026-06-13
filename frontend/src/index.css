@@ -47,15 +47,27 @@ body {
 .sidebar-logo p { font-size: 0.65rem; color: var(--text3); margin-top: 2px; }
 
 .sidebar-nav { flex: 1; padding: 12px 0; overflow-y: auto; }
-.sidebar-nav a {
+.sidebar-nav a,
+.sidebar-nav .sidebar-group-btn {
   display: flex; align-items: center; gap: 10px;
   padding: 10px 16px;
   color: var(--text2);
   text-decoration: none;
   font-size: 0.85rem;
   font-weight: 700;
+  font-family: inherit;
+  line-height: 1.4;
+  letter-spacing: normal;
   border-left: 3px solid transparent;
   transition: all 0.15s;
+}
+.sidebar-nav .sidebar-group-btn {
+  width: 100%;
+  background: none;
+  border: none;
+  border-left: 3px solid transparent;
+  cursor: pointer;
+  justify-content: space-between;
 }
 /* sub-nav items inside expandable groups */
 .sidebar-sub-item {
@@ -792,3 +804,58 @@ tr:hover td { background: #FAFAFA; }
     border-radius: 4px; padding: 6px 10px; font-size: 8.5pt; line-height: 1.5;
   }
 }
+
+/* ── Modern Order View Modal ───────────────────────────────────────────── */
+.om-modal {
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  max-height: 90vh;
+}
+.om-modal .modal-body {
+  flex: 1; min-height: 0; overflow-y: auto;
+  padding-bottom: 28px;
+}
+.om-modal .modal-footer { flex-shrink: 0; }
+.om-hero {
+  padding: 20px 24px 18px;
+  border-bottom: 1px solid var(--border);
+}
+.om-hero-icon {
+  width: 46px; height: 46px; border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+}
+.om-status-pill {
+  font-size: 0.7rem; font-weight: 700; padding: 3px 11px;
+  border-radius: 99px; text-transform: uppercase; letter-spacing: 0.03em;
+}
+.om-stat-grid {
+  display: grid; grid-template-columns: repeat(2, 1fr);
+  gap: 10px; margin-bottom: 10px;
+}
+@media (min-width: 640px) { .om-stat-grid { grid-template-columns: repeat(4, 1fr); } }
+.om-stat-tile {
+  display: flex; align-items: center; gap: 10px;
+  background: #fafbfc; border: 1px solid var(--border);
+  border-radius: 12px; padding: 11px 13px;
+}
+.om-stat-icon {
+  width: 34px; height: 34px; border-radius: 9px;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.om-progress-tile {
+  grid-column: span 3;
+  background: #fafbfc; border: 1px solid var(--border);
+  border-radius: 12px; padding: 12px 14px;
+  display: flex; flex-direction: column; justify-content: center;
+}
+@media (max-width: 639px) { .om-progress-tile { grid-column: span 1; } }
+.om-status-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 0.74rem; font-weight: 700;
+  padding: 7px 14px; border-radius: 99px;
+  border: 1.5px solid; cursor: pointer;
+  transition: all 0.15s;
+}
+.om-status-btn:hover { transform: translateY(-1px); box-shadow: 0 3px 8px rgba(0,0,0,0.08); }
