@@ -2535,11 +2535,5 @@ function StatTile({ icon, label, value, tint }: { icon: ReactNode; label: string
 }
 
 // ─── Field helper ─────────────────────────────────────────────────────────────
-function Field({ label, value }: { label: string; value?: string | number }) {
-  return (
-    <div>
-      <div style={{ fontSize: '0.7rem', color: 'var(--text3)', fontWeight: 500, marginBottom: 2 }}>{label}</div>
-      <div style={{ fontSize: '0.85rem', fontWeight: 500 }}>{value || '—'}</div>
-    </div>
-  );
-}
+// Field component kept for potential future use
+// function Field({ label, value }: { label: string; value?: string | number }) { ... }

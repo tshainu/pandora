@@ -498,12 +498,22 @@ function POSTab() {
 
 
 
-        {/* Action buttons */}
+        {/* Success toast — top center */}
         {success && (
-          <div style={{ background: '#E8F5E9', color: '#2E7D32', borderTop: '1px solid #A5D6A7', padding: '8px 16px', fontSize: '0.82rem', fontWeight: 600 }}>
+          <div style={{
+            position: 'fixed', top: 18, left: '50%', transform: 'translateX(-50%)',
+            zIndex: 9999, background: '#1B8A5A', color: '#fff',
+            padding: '12px 28px', borderRadius: 10,
+            boxShadow: '0 4px 20px rgba(0,0,0,0.18)',
+            fontSize: '0.9rem', fontWeight: 700,
+            display: 'flex', alignItems: 'center', gap: 8,
+            animation: 'fadeInDown 0.25s ease',
+          }}>
             ✓ {success}
           </div>
         )}
+
+        {/* Action buttons */}
         <div style={{ display: 'grid', gridTemplateColumns: '160px 1fr 1fr 1fr 1fr', borderTop: '2px solid var(--border)' }}>
           {/* Recent Sales + Draft quick links */}
           <div style={{ borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
