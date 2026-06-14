@@ -847,7 +847,7 @@ export default {
       }
       if (stmts.length) await env.pandora_db.batch(stmts);
 
-      const sale = await env.pandora_db.prepare('SELECT * FROM sales WHERE id=?').bind(sid).first();
+      const sale = await env.pandora_db.prepare('SELECT s.*,c.name customer_name,COALESCE(c.phone,c.mobile) customer_phone,(SELECT o.order_no FROM orders o WHERE o.sale_id=s.id LIMIT 1) order_no FROM sales s LEFT JOIN customers c ON c.id=s.customer_id WHERE s.id=?').bind(sid).first();
       const items = await env.pandora_db.prepare('SELECT si.*,i.name item_name FROM sale_items si LEFT JOIN items i ON i.id=si.item_id WHERE si.sale_id=?').bind(sid).all();
       return json({ sale, items: items.results }, 201);
     }
@@ -855,7 +855,7 @@ export default {
     if (saleMatch) {
       const id = Number(saleMatch[1]);
       if (method === 'GET') {
-        const s = await env.pandora_db.prepare('SELECT s.*,c.name customer_name FROM sales s LEFT JOIN customers c ON c.id=s.customer_id WHERE s.id=?').bind(id).first();
+        const s = await env.pandora_db.prepare('SELECT s.*,c.name customer_name,COALESCE(c.phone,c.mobile) customer_phone,(SELECT o.order_no FROM orders o WHERE o.sale_id=s.id LIMIT 1) order_no FROM sales s LEFT JOIN customers c ON c.id=s.customer_id WHERE s.id=?').bind(id).first();
         const items = await env.pandora_db.prepare('SELECT si.*,i.name item_name FROM sale_items si LEFT JOIN items i ON i.id=si.item_id WHERE si.sale_id=?').bind(id).all();
         return json({ sale: s, items: items.results });
       }

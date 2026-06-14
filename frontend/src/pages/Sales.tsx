@@ -123,14 +123,21 @@ function printReceipt(sale: any, items: any[], settings?: Record<string, string>
     ? `<div class="r80-total-row r80-due"><span>BALANCE DUE</span><span>Rs. ${fmt(total - paid)}</span></div>`
     : '';
 
+  const customerName  = sale.customer_name || 'Walk-In Customer';
+  const customerPhone = sale.customer_phone || '';
+  const orderNo       = sale.order_no || '';
+
   const html = `
     <div class="receipt-80" id="__receipt_print__">
       <div class="r80-header">
         ${headerBlock}
         <div class="r80-divider">--------------------------------</div>
-        <div class="r80-invoice">${sale.invoice_no || ''}</div>
+        <div class="r80-invoice">Invoice: ${sale.invoice_no || ''}</div>
+        ${orderNo ? `<div class="r80-invoice">Order: ${orderNo}</div>` : ''}
         <div class="r80-date">${date} | ${time}</div>
-        <div class="r80-customer">Customer: ${sale.customer_name || 'Walk-In Customer'}</div>
+        <div class="r80-divider">--------------------------------</div>
+        <div class="r80-customer"><strong>${customerName}</strong></div>
+        ${customerPhone ? `<div class="r80-customer">${customerPhone}</div>` : ''}
         <div class="r80-divider">--------------------------------</div>
       </div>
       <div class="r80-items">
