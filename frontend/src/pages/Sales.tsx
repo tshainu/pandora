@@ -216,6 +216,118 @@ function printReceipt(sale: any, items: any[], settings?: Record<string, string>
   }
 }
 
+/* ─── A4 QUOTATION PRINT HELPER ──────────────────────────────────── */
+async function printQuotation(quotationId: number, settings?: Record<string, string>) {
+  // Fetch full quotation with items
+  const res = await fetch(`/quotations/${quotationId}`);
+  const { quotation: q, items } = await res.json() as any;
+  const fmt = (n: number) => 'Rs. ' + Number(n).toLocaleString('en-LK', { minimumFractionDigits: 2 });
+
+  const co = {
+    name: settings?.name || 'Pandora Garments',
+    address: settings?.address || '',
+    phone: settings?.phone || '',
+    email: settings?.email || '',
+    logo: settings?.logo_url || '',
+  };
+
+  const itemRows = (items as any[]).map((l: any, i: number) => `
+    <tr>
+      <td style="padding:7px 8px;border-bottom:1px solid #f0f0f0;">${i + 1}</td>
+      <td style="padding:7px 8px;border-bottom:1px solid #f0f0f0;">${l.description || l.item_name || ''}</td>
+      <td style="padding:7px 8px;border-bottom:1px solid #f0f0f0;text-align:right;">${Number(l.qty)}</td>
+      <td style="padding:7px 8px;border-bottom:1px solid #f0f0f0;text-align:right;">${fmt(l.unit_price)}</td>
+      <td style="padding:7px 8px;border-bottom:1px solid #f0f0f0;text-align:right;">${fmt(l.total || l.qty * l.unit_price)}</td>
+    </tr>`).join('');
+
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <title>Quotation ${q.quotation_no}</title>
+  <style>
+    @page { size: A4; margin: 18mm 18mm 18mm 18mm; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 10pt; color: #1a1a1a; }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 28px; }
+    .company-name { font-size: 18pt; font-weight: 800; color: #DC2626; }
+    .company-info { font-size: 8.5pt; color: #555; line-height: 1.6; margin-top: 4px; }
+    .doc-title { text-align: right; }
+    .doc-title h1 { font-size: 22pt; font-weight: 800; color: #DC2626; letter-spacing: 1px; }
+    .doc-title .doc-no { font-size: 11pt; font-weight: 700; color: #333; margin-top: 4px; }
+    .doc-title .doc-date { font-size: 8.5pt; color: #666; margin-top: 3px; }
+    .divider { border: none; border-top: 2px solid #DC2626; margin: 0 0 22px 0; }
+    .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 28px; }
+    .meta-box label { font-size: 7.5pt; font-weight: 700; color: #DC2626; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 4px; }
+    .meta-box .val { font-size: 10.5pt; font-weight: 600; }
+    .meta-box .sub { font-size: 8.5pt; color: #666; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+    thead tr { background: #DC2626; color: #fff; }
+    thead th { padding: 9px 8px; text-align: left; font-size: 9pt; font-weight: 700; }
+    thead th:last-child, thead th:nth-child(3), thead th:nth-child(4) { text-align: right; }
+    tbody tr:nth-child(even) { background: #fdf2f2; }
+    .totals { margin-left: auto; width: 280px; }
+    .totals table { margin-bottom: 0; }
+    .totals td { padding: 5px 8px; font-size: 10pt; }
+    .totals tr.grand td { font-weight: 800; font-size: 12pt; color: #DC2626; border-top: 2px solid #DC2626; padding-top: 8px; }
+    .notes { margin-top: 28px; padding: 14px 16px; background: #fff8f8; border-left: 3px solid #DC2626; border-radius: 3px; }
+    .notes label { font-size: 7.5pt; font-weight: 700; color: #DC2626; text-transform: uppercase; display: block; margin-bottom: 6px; }
+    .notes p { font-size: 9.5pt; color: #444; white-space: pre-wrap; }
+    .footer { position: fixed; bottom: 12mm; left: 18mm; right: 18mm; text-align: center; font-size: 8pt; color: #aaa; border-top: 1px solid #eee; padding-top: 6px; }
+    .validity { font-size: 8.5pt; color: #888; margin-top: 24px; }
+    img.logo { max-height: 56px; max-width: 160px; object-fit: contain; }
+  </style></head><body>
+  <div class="header">
+    <div>
+      ${co.logo ? `<img class="logo" src="${co.logo}" alt="Logo"><br>` : ''}
+      <div class="company-name">${co.name}</div>
+      <div class="company-info">
+        ${co.address ? co.address + '<br>' : ''}
+        ${co.phone ? 'Tel: ' + co.phone : ''}${co.phone && co.email ? ' &nbsp;|&nbsp; ' : ''}${co.email ? co.email : ''}
+      </div>
+    </div>
+    <div class="doc-title">
+      <h1>QUOTATION</h1>
+      <div class="doc-no">${q.quotation_no}</div>
+      <div class="doc-date">Date: ${q.quotation_date || ''}</div>
+      ${q.expiry_date ? `<div class="doc-date">Valid Until: <strong>${q.expiry_date}</strong></div>` : ''}
+    </div>
+  </div>
+  <hr class="divider">
+  <div class="meta">
+    <div class="meta-box">
+      <label>Bill To</label>
+      <div class="val">${q.customer_name || '—'}</div>
+    </div>
+    <div class="meta-box">
+      <label>Status</label>
+      <div class="val">${q.status || 'Draft'}</div>
+    </div>
+  </div>
+  <table>
+    <thead><tr>
+      <th style="width:32px">#</th>
+      <th>Description</th>
+      <th style="width:60px;text-align:right">Qty</th>
+      <th style="width:110px;text-align:right">Unit Price</th>
+      <th style="width:110px;text-align:right">Amount</th>
+    </tr></thead>
+    <tbody>${itemRows}</tbody>
+  </table>
+  <div class="totals">
+    <table>
+      <tr class="grand"><td>Total</td><td style="text-align:right">${fmt(q.total_amount || 0)}</td></tr>
+    </table>
+  </div>
+  ${q.notes ? `<div class="notes"><label>Notes</label><p>${q.notes}</p></div>` : ''}
+  ${q.expiry_date ? `<div class="validity">This quotation is valid until ${q.expiry_date}.</div>` : ''}
+  <div class="footer">${co.name}${co.phone ? ' &nbsp;|&nbsp; ' + co.phone : ''}${co.email ? ' &nbsp;|&nbsp; ' + co.email : ''}</div>
+  </body></html>`;
+
+  const win = window.open('', '_blank', 'width=900,height=700');
+  if (!win) { alert('Allow popups to print'); return; }
+  win.document.write(html);
+  win.document.close();
+  win.onload = () => { win.focus(); win.print(); };
+}
+
 function POSTab() {
   const qc = useQueryClient();
   const { data: allItems = [] } = useQuery({ queryKey: ['items'], queryFn: () => api.getItems() });
@@ -872,7 +984,7 @@ function POSTab() {
         )}
         {/* Quotation result modal */}
         {showQuotationModal && lastQuotation && (
-          <POSQuotationResultModal quotation={lastQuotation} onClose={() => setShowQuotationModal(false)} />
+          <POSQuotationResultModal quotation={lastQuotation} onClose={() => setShowQuotationModal(false)} settings={settings as Record<string, string>} />
         )}
       </div>
 
@@ -1201,7 +1313,7 @@ function POSRecentModal({ onClose, onLoad }: { onClose: () => void; onLoad: (sal
 }
 
 /* ─── POS QUOTATION RESULT MODAL ─────────────────────────────────── */
-function POSQuotationResultModal({ quotation, onClose }: { quotation: any; onClose: () => void }) {
+function POSQuotationResultModal({ quotation, onClose, settings }: { quotation: any; onClose: () => void; settings?: Record<string, string> }) {
   const handleShare = async () => {
     const text = `Quotation ${quotation.quotation_no}\nTotal: Rs. ${Number(quotation.total_amount).toLocaleString('en-LK')}\nPandora Garments`;
     if (navigator.share) {
@@ -1227,9 +1339,9 @@ function POSQuotationResultModal({ quotation, onClose }: { quotation: any; onClo
             style={{ padding: '9px 20px', background: '#7B1FA2', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer' }}
           >Share</button>
           <button
-            onClick={() => window.print()}
+            onClick={() => printQuotation(quotation.id, settings)}
             style={{ padding: '9px 20px', background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 8, fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer' }}
-          >Print / PDF</button>
+          >Print A4 / PDF</button>
         </div>
         <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text3)', fontSize: '0.82rem', cursor: 'pointer', textDecoration: 'underline' }}>
           Close
@@ -1601,6 +1713,7 @@ function QuotationsTab({ defaultNew }: { defaultNew?: boolean }) {
   });
   const { data: customers = [] } = useQuery({ queryKey: ['customers'], queryFn: () => api.getCustomers() });
   const { data: items = [] } = useQuery({ queryKey: ['items'], queryFn: () => api.getItems() });
+  const { data: settings = {} } = useQuery<Record<string, string>>({ queryKey: ['settings'], queryFn: () => api.getSettings() });
 
   const save = useMutation({
     mutationFn: (d: object) => api.createQuotation(d),
@@ -1659,7 +1772,10 @@ function QuotationsTab({ defaultNew }: { defaultNew?: boolean }) {
                       <td style={{ fontSize: '0.78rem' }}>{q.expiry_date || '—'}</td>
                       <td><StatusBadge status={q.status} /></td>
                       <td style={{ fontWeight: 600 }}>{fmt(q.total_amount)}</td>
-                      <td>
+                      <td style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                        <button className="btn-icon" title="Print A4" onClick={() => printQuotation(q.id, settings as Record<string, string>)}>
+                          <Printer size={14} />
+                        </button>
                         {(q.status === 'Sent' || q.status === 'Draft') && (
                           <button className="btn btn-sm btn-primary" onClick={() => { if (confirm('Convert to invoice?')) convert.mutate(q.id); }}>
                             <ArrowRight size={12} /> Convert
