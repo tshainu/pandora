@@ -2,17 +2,18 @@ import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api';
 import { Plus, Search, Edit2, Trash2, X, Eye, Phone, Mail, MapPin, CreditCard, ChevronDown, User } from 'lucide-react';
+import AddCustomerModal from '../components/AddCustomerModal';
 
 type Customer = {
   id: number; name: string; type: string; email: string; phone: string;
   address: string; contact_person: string; credit_limit: number;
   credit_balance: number; notes: string; opening_balance: number;
-  total_orders: number; outstanding_balance: number;
+  total_orders: number; outstanding_balance: number; quality_rating: number;
 };
 
 const EMPTY: Partial<Customer> = {
   name: '', type: 'retail', email: '', phone: '', address: '',
-  contact_person: '', credit_limit: 0, notes: '', opening_balance: 0,
+  contact_person: '', credit_limit: 0, notes: '', opening_balance: 0, quality_rating: 100,
 };
 
 const fmt = (n: number) => new Intl.NumberFormat('en-LK', { style: 'currency', currency: 'LKR', maximumFractionDigits: 0 }).format(n || 0);
@@ -193,16 +194,23 @@ export default function Customers() {
         )}
       </div>
 
-      {/* Add/Edit Modal */}
-      {(modal === 'add' || modal === 'edit') && (
+      {/* Add Modal — shared component */}
+      {modal === 'add' && (
+        <AddCustomerModal
+          onClose={() => setModal(null)}
+          onCreated={() => setModal(null)}
+        />
+      )}
+
+      {/* Edit Modal */}
+      {modal === 'edit' && (
         <div className="modal-overlay" onClick={() => setModal(null)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>{modal === 'add' ? 'Add Customer' : 'Edit Customer'}</h3>
+              <h3>Edit Customer</h3>
               <button className="btn-icon" onClick={() => setModal(null)}><X size={16} /></button>
             </div>
             <div className="modal-body">
-              {/* Phone first */}
               <div className="form-row">
                 <div className="form-group">
                   <label>Phone *</label>
@@ -210,7 +218,7 @@ export default function Customers() {
                     <Phone size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text3)' }} />
                     <input className="form-control" style={{ paddingLeft: 30 }} value={form.phone || ''} onChange={e => setForm(p => ({ ...p, phone: e.target.value }))} placeholder="0XX XXX XXXX" />
                   </div>
-                  {phoneWarn && <div style={{ fontSize: '0.72rem', color: '#E65100', marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }}>{phoneWarn}</div>}
+                  {phoneWarn && <div style={{ fontSize: '0.72rem', color: '#E65100', marginTop: 4 }}>{phoneWarn}</div>}
                 </div>
                 <div className="form-group">
                   <label>Name *</label>
@@ -271,6 +279,24 @@ export default function Customers() {
               <div className="form-group">
                 <label>Notes</label>
                 <textarea className="form-control" value={form.notes || ''} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} />
+              </div>
+              <div className="form-group">
+                <label>Customer Quality Rating</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <input
+                    type="range" min={0} max={100} step={1}
+                    value={form.quality_rating ?? 100}
+                    onChange={e => setForm(p => ({ ...p, quality_rating: Number(e.target.value) }))}
+                    style={{ flex: 1, accentColor: (form.quality_rating ?? 100) >= 80 ? '#16A34A' : (form.quality_rating ?? 100) >= 50 ? '#D97706' : '#DC2626' }}
+                  />
+                  <span style={{
+                    fontWeight: 800, fontSize: '1rem', minWidth: 46, textAlign: 'right',
+                    color: (form.quality_rating ?? 100) >= 80 ? '#16A34A' : (form.quality_rating ?? 100) >= 50 ? '#D97706' : '#DC2626'
+                  }}>{form.quality_rating ?? 100}%</span>
+                </div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text3)', marginTop: 3 }}>
+                  Default 100% — lower if customer has bad reviews, disputes, or other concerns. Affects ranking.
+                </div>
               </div>
               {save.isError && <div className="alert alert-danger" style={{ marginTop: 8 }}>{String((save.error as Error)?.message)}</div>}
             </div>

@@ -187,7 +187,7 @@ function SummaryDetailModal({ row, onClose }: { row: any; onClose: () => void })
 
           <div style={{ marginTop: 14, padding: '10px 14px', background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 8, fontSize: '0.78rem', color: '#1e40af' }}>
             This summary averages <strong>{row.eval_count}</strong> evaluation{row.eval_count !== 1 ? 's' : ''} done for {row.employee_name} in {formatMonth(row.month)}.
-            Individual evaluations are visible in the <strong>All Evaluations</strong> tab.
+            Individual sessions are visible in the <strong>Raw Records</strong> tab.
           </div>
         </div>
       </div>
@@ -199,7 +199,7 @@ function SummaryDetailModal({ row, onClose }: { row: any; onClose: () => void })
 export default function Evaluations() {
   const qc = useQueryClient();
   const nav = useNavigate();
-  const [tab, setTab] = useState<'all' | 'summary'>('all');
+  const [tab, setTab] = useState<'all' | 'summary'>('summary');
   const [month, setMonth] = useState('');
   const [viewEval, setViewEval] = useState<any>(null);
   const [viewSummary, setViewSummary] = useState<any>(null);
@@ -237,18 +237,6 @@ export default function Evaluations() {
         {/* Tabs */}
         <div className="tabs" style={{ marginBottom: 20 }}>
           <button
-            className={`tab ${tab === 'all' ? 'active' : ''}`}
-            onClick={() => setTab('all')}
-            style={{ display: 'flex', alignItems: 'center', gap: 6 }}
-          >
-            <List size={14} /> All Evaluations
-            {evaluations.length > 0 && (
-              <span style={{ background: 'var(--accent,#6366f1)', color: '#fff', borderRadius: 10, fontSize: '0.68rem', padding: '1px 7px', fontWeight: 700 }}>
-                {evaluations.length}
-              </span>
-            )}
-          </button>
-          <button
             className={`tab ${tab === 'summary' ? 'active' : ''}`}
             onClick={() => setTab('summary')}
             style={{ display: 'flex', alignItems: 'center', gap: 6 }}
@@ -257,6 +245,18 @@ export default function Evaluations() {
             {summaries.length > 0 && (
               <span style={{ background: '#0891b2', color: '#fff', borderRadius: 10, fontSize: '0.68rem', padding: '1px 7px', fontWeight: 700 }}>
                 {summaries.length}
+              </span>
+            )}
+          </button>
+          <button
+            className={`tab ${tab === 'all' ? 'active' : ''}`}
+            onClick={() => setTab('all')}
+            style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+          >
+            <List size={14} /> Raw Records
+            {evaluations.length > 0 && (
+              <span style={{ background: 'var(--accent,#6366f1)', color: '#fff', borderRadius: 10, fontSize: '0.68rem', padding: '1px 7px', fontWeight: 700 }}>
+                {evaluations.length}
               </span>
             )}
           </button>
@@ -336,8 +336,8 @@ export default function Evaluations() {
             }}>
               <BarChart2 size={16} style={{ flexShrink: 0 }} />
               <span>
-                Each row shows the <strong>average</strong> of all evaluations done for that employee in that month —
-                no matter how many times you evaluated them. Evaluate as often as needed; the summary always reflects the monthly average.
+                One row per employee per month — showing the <strong>cumulative average</strong> across all evaluation sessions that month.
+                Use <strong>Raw Records</strong> tab to view individual sessions.
               </span>
             </div>
 

@@ -130,7 +130,7 @@ export default function Dashboard() {
         </div>
 
         {/* Charts row 1 — Revenue vs Expenses bar */}
-        <div className="card" style={{ marginBottom: 16, borderTop: "3px solid #4E6FFF" }}>
+        <div className="card" style={{ marginBottom: 16 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
             <div className="card-title" style={{ marginBottom: 0 }}>Revenue vs Expenses — {thisMonthLabel}</div>
             <div style={{ display: 'flex', gap: 16, fontSize: '0.75rem', color: 'var(--text3)' }}>
@@ -158,7 +158,7 @@ export default function Dashboard() {
 
         {/* Charts row 2 — pie + top customers + top performers + recent orders */}
         <div className="charts-grid">
-          <div className="card" style={{ borderTop: "3px solid #C0001A" }}>
+          <div className="card">
             <div className="card-title">Orders by Status</div>
             {orderStatusDist.length === 0
               ? <div className="empty"><div className="empty-icon">📋</div><p>No orders yet</p></div>
@@ -174,19 +174,33 @@ export default function Dashboard() {
                 </ResponsiveContainer>
               )}
           </div>
-          <div className="card" style={{ borderTop: "3px solid #FF9F43" }}>
-            <div className="card-title">Top Customers by Revenue</div>
+          <div className="card">
+            <div className="card-title">Top Customers — Ranked</div>
             {topCustomers.length === 0
               ? <div className="empty"><div className="empty-icon">👥</div><p>No customer data yet</p></div>
               : (
-                <ResponsiveContainer width="100%" height={200}>
-                  <BarChart data={topCustomers} layout="vertical">
-                    <XAxis type="number" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} />
-                    <YAxis type="category" dataKey="name" tick={{ fontSize: 10 }} width={100} axisLine={false} tickLine={false} />
-                    <Tooltip formatter={(v) => fmt(Number(v))} contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)', fontSize: 12 }} />
-                    <Bar dataKey="total" fill="#C0001A" radius={[0, 4, 4, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {topCustomers.map((c: any, i: number) => {
+                    const score = c.rank_score ?? 0;
+                    const color = score >= 70 ? '#16A34A' : score >= 40 ? '#D97706' : '#C0001A';
+                    return (
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 8, background: i === 0 ? '#FFF7ED' : 'var(--bg)', border: `1px solid ${i === 0 ? '#FED7AA' : 'var(--border)'}` }}>
+                        <span style={{ fontWeight: 800, fontSize: '0.82rem', color, minWidth: 18 }}>#{i + 1}</span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 600, fontSize: '0.82rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.name}</div>
+                          <div style={{ fontSize: '0.68rem', color: 'var(--text3)' }}>{fmt(c.total)} · {c.order_count} orders · {fmtNum(c.total_pcs)} pcs</div>
+                        </div>
+                        <div style={{ minWidth: 60, textAlign: 'right' }}>
+                          <div style={{ fontWeight: 800, fontSize: '0.88rem', color }}>{score}</div>
+                          <div style={{ fontSize: '0.65rem', color: 'var(--text3)' }}>score</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <div style={{ fontSize: '0.68rem', color: 'var(--text3)', marginTop: 4, textAlign: 'center' }}>
+                    Ranked by: revenue · orders · pcs · payment · delivery · loyalty · quality
+                  </div>
+                </div>
               )}
           </div>
 
@@ -311,8 +325,8 @@ function LeaderboardRow({ rank, emp }: { rank: number; emp: { employeeName: stri
   const color = gradeToColor(emp.grade);
   return (
     <div style={{
-      display: 'flex', alignItems: 'center', gap: 10,
-      padding: '8px 10px', borderRadius: 10,
+      display: 'flex', alignItems: 'center', gap: 8,
+      padding: '8px 14px 8px 10px', borderRadius: 10,
       background: rank === 1 ? '#FFD70008' : 'var(--bg)',
       border: rank === 1 ? '1px solid #FFD70030' : '1px solid var(--border)',
     }}>
@@ -335,10 +349,10 @@ function LeaderboardRow({ rank, emp }: { rank: number; emp: { employeeName: stri
       </div>
 
       {/* Score bar */}
-      <div style={{ width: 70, flexShrink: 0 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
-          <span style={{ fontSize: '0.68rem', color: 'var(--text3)' }}>{emp.grade}</span>
-          <span style={{ fontSize: '0.78rem', fontWeight: 800, color }}>{pct}%</span>
+      <div style={{ width: 100, flexShrink: 0, minWidth: 0 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3, gap: 4, overflow: 'hidden' }}>
+          <span style={{ fontSize: '0.68rem', color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>{emp.grade}</span>
+          <span style={{ fontSize: '0.78rem', fontWeight: 800, color, flexShrink: 0 }}>{pct}%</span>
         </div>
         <div style={{ height: 5, borderRadius: 10, background: '#E8E8E8', overflow: 'hidden' }}>
           <div style={{ height: '100%', width: `${pct}%`, borderRadius: 10, background: color, transition: 'width 0.6s ease' }} />
@@ -352,7 +366,7 @@ function KpiCard({ icon, gif, color, label, value, sub, highlight }: {
   icon?: React.ReactNode; gif?: string; color: string; label: string; value: string; sub: string; highlight?: boolean;
 }) {
   return (
-    <div className="kpi-card" style={highlight ? { borderTop: `3px solid ${color}`, borderLeft: `3px solid ${color}`, background: '#ffffff' } : { borderTop: `3px solid ${color}` }}>
+    <div className="kpi-card" style={{ border: `2px solid ${color}`, background: highlight ? '#ffffff' : undefined }}>
       <div className="kpi-icon" style={{ background: `${color}15`, color, overflow: 'hidden', padding: gif ? 0 : undefined }}>
         {gif
           ? <img src={gif} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />

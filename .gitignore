@@ -12,3 +12,4 @@ _*.png
 .env.cf
 .env.worker
 .env.deploy
+.env.deploy

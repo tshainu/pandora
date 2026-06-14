@@ -100,7 +100,44 @@ export default {
         env.pandora_db.prepare("SELECT strftime('%Y-%m',sale_date) m, ROUND(SUM(total_amount),2) total FROM sales GROUP BY m ORDER BY m DESC LIMIT 12").all(),
         env.pandora_db.prepare("SELECT strftime('%Y-%m',expense_date) m, ROUND(SUM(amount),2) total FROM expenses GROUP BY m ORDER BY m DESC LIMIT 12").all(),
         env.pandora_db.prepare("SELECT status, COUNT(*) c FROM orders GROUP BY status").all(),
-        env.pandora_db.prepare("SELECT c.name, COALESCE(SUM(s.total_amount),0) total FROM customers c LEFT JOIN sales s ON s.customer_id=c.id GROUP BY c.id ORDER BY total DESC LIMIT 5").all(),
+        env.pandora_db.prepare(`
+          WITH cstats AS (
+            SELECT
+              c.id, c.name,
+              COALESCE(c.quality_rating, 100) quality_rating,
+              julianday('now') - julianday(c.created_at) AS days_as_customer,
+              COALESCE((SELECT SUM(s2.total_amount) FROM sales s2 WHERE s2.customer_id=c.id), 0) AS total_revenue,
+              COALESCE((SELECT COUNT(*) FROM orders o2 WHERE o2.customer_id=c.id), 0) AS order_count,
+              COALESCE((SELECT SUM(o3.total_qty) FROM orders o3 WHERE o3.customer_id=c.id), 0) AS total_pcs,
+              COALESCE((SELECT SUM(s3.total_amount - COALESCE(s3.paid_amount,0)) FROM sales s3 WHERE s3.customer_id=c.id AND s3.payment_status IN ('Due','Partial')), 0) AS outstanding,
+              COALESCE((
+                SELECT ROUND(100.0 * SUM(CASE WHEN o4.status IN ('Delivered','Collected') AND o4.delivery_date >= date(o4.created_at) THEN 1 ELSE 0 END) / MAX(COUNT(*),1), 0)
+                FROM orders o4 WHERE o4.customer_id=c.id AND o4.status IN ('Delivered','Collected')
+              ), 100) AS ontime_pct
+            FROM customers c WHERE c.status='Active'
+          ),
+          max_vals AS (
+            SELECT
+              MAX(total_revenue)+1 mr, MAX(order_count)+1 mo, MAX(total_pcs)+1 mp,
+              MAX(days_as_customer)+1 md
+            FROM cstats
+          ),
+          scored AS (
+            SELECT cs.*,
+              ROUND(
+                (cs.total_revenue / mv.mr) * 30 +
+                (cs.order_count / mv.mo) * 15 +
+                (cs.total_pcs / mv.mp) * 15 +
+                (CASE WHEN cs.outstanding = 0 THEN 20 ELSE ROUND(20.0 * (1 - MIN(cs.outstanding / (cs.total_revenue+1), 1)),1) END) +
+                (cs.ontime_pct / 100.0) * 10 +
+                (cs.days_as_customer / mv.md) * 5 +
+                (cs.quality_rating / 100.0) * 5
+              , 1) AS rank_score
+            FROM cstats cs, max_vals mv
+          )
+          SELECT name, total_revenue AS total, order_count, total_pcs, outstanding, ontime_pct, days_as_customer, quality_rating, rank_score
+          FROM scored ORDER BY rank_score DESC LIMIT 5
+        `).all(),
         env.pandora_db.prepare(`SELECT grade, COUNT(*) count FROM evaluations ${month ? `WHERE month LIKE '${month}%'` : ''} GROUP BY grade`).all(),
         env.pandora_db.prepare("SELECT d.name department, ROUND(AVG(ev.percentage),1) avgScore FROM evaluations ev JOIN employees e ON e.id=ev.employee_id JOIN departments d ON d.name=e.department GROUP BY d.name").all(),
         env.pandora_db.prepare(`SELECT ev.id, emp.name employeeName, emp.department, ev.month, ev.percentage, ev.grade FROM evaluations ev JOIN employees emp ON emp.id=ev.employee_id WHERE ev.month=? ORDER BY ev.percentage DESC LIMIT 5`).bind(thisMonth).all(),
@@ -324,9 +361,9 @@ export default {
       const code = `CUS-${Date.now().toString().slice(-6)}`;
       const phone = b.phone || b.mobile || null;
       const r = await env.pandora_db.prepare(
-        `INSERT INTO customers (customer_code,name,company_name,contact_person,phone,mobile,email,address,city,notes,type,credit_limit,credit_balance,opening_balance,status)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
-      ).bind(code,b.name,b.company_name||null,b.contact_person||null,phone,phone,b.email||null,b.address||null,b.city||null,b.notes||null,b.type||'retail',b.credit_limit||0,0,b.opening_balance||0,b.status||'Active').run();
+        `INSERT INTO customers (customer_code,name,company_name,contact_person,phone,mobile,email,address,city,notes,type,credit_limit,credit_balance,opening_balance,status,quality_rating)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+      ).bind(code,b.name,b.company_name||null,b.contact_person||null,phone,phone,b.email||null,b.address||null,b.city||null,b.notes||null,b.type||'retail',b.credit_limit||0,0,b.opening_balance||0,b.status||'Active',b.quality_rating!=null?b.quality_rating:100).run();
       const row = await env.pandora_db.prepare('SELECT * FROM customers WHERE id=?').bind(r.meta.last_row_id).first();
       return json({ customer: row }, 201);
     }
@@ -369,8 +406,8 @@ export default {
         const b = await request.json() as any;
         const phone = b.phone || b.mobile || null;
         await env.pandora_db.prepare(
-          `UPDATE customers SET name=?,company_name=?,contact_person=?,phone=?,mobile=?,email=?,address=?,city=?,notes=?,type=?,credit_limit=?,opening_balance=?,status=? WHERE id=?`
-        ).bind(b.name,b.company_name||null,b.contact_person||null,phone,phone,b.email||null,b.address||null,b.city||null,b.notes||null,b.type||'retail',b.credit_limit||0,b.opening_balance||0,b.status||'Active',id).run();
+          `UPDATE customers SET name=?,company_name=?,contact_person=?,phone=?,mobile=?,email=?,address=?,city=?,notes=?,type=?,credit_limit=?,opening_balance=?,status=?,quality_rating=? WHERE id=?`
+        ).bind(b.name,b.company_name||null,b.contact_person||null,phone,phone,b.email||null,b.address||null,b.city||null,b.notes||null,b.type||'retail',b.credit_limit||0,b.opening_balance||0,b.status||'Active',b.quality_rating!=null?b.quality_rating:100,id).run();
         return json({ customer: await env.pandora_db.prepare('SELECT * FROM customers WHERE id=?').bind(id).first() });
       }
       if (method === 'DELETE') {
@@ -968,6 +1005,8 @@ export default {
     if (path === '/settings') {
       // Ensure app_settings KV table exists (self-migrating)
       await env.pandora_db.prepare(`CREATE TABLE IF NOT EXISTS app_settings (key TEXT PRIMARY KEY, value TEXT)`).run();
+      // Self-migrate: add quality_rating to customers if missing
+      try { await env.pandora_db.prepare('ALTER TABLE customers ADD COLUMN quality_rating INTEGER NOT NULL DEFAULT 100').run(); } catch(_){};
 
       if (method === 'GET') {
         const cs = await env.pandora_db.prepare('SELECT * FROM company_settings WHERE id=1').first<any>();

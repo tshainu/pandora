@@ -79,7 +79,7 @@ function monthFromDate(dateStr: string): string {
 }
 
 const blank = {
-  employee_id: '', month: '', supervisor_name: '', evaluation_date: today(),
+  employee_id: '', month: '', supervisor_name: JSON.parse(sessionStorage.getItem('pandora_auth') || '{}').username || '', evaluation_date: today(),
   days_leave_taken: 0, attendance_score: 0, attendance_remark: '',
   late_minutes: 0, punctuality_score: 0, punctuality_remark: '',
   productivity_stars: 0, productivity_score: 0, productivity_remark: '',

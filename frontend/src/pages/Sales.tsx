@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { api } from '../api';
 import { Plus, Search, Eye, X, Trash2, ArrowRight, ShoppingBag, FileText, FileCheck, ScanLine, ChevronDown, Pencil, Printer } from 'lucide-react';
+import AddCustomerModal from '../components/AddCustomerModal';
 
 type LineItem = { item_id: number; item_name: string; qty: number; unit_price: number; discount: number };
 type Sale = {
@@ -108,6 +109,7 @@ function POSTab() {
   const [showCustDropdown, setShowCustDropdown] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<PosCustomer>(null);
   const [loadingCust, setLoadingCust] = useState(false);
+  const [showAddCustModal, setShowAddCustModal] = useState(false);
   const custRef = useRef<HTMLDivElement>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [billDiscount, setBillDiscount] = useState(0);
@@ -280,6 +282,7 @@ function POSTab() {
   const { data: addonItemsList = [] } = useQuery({ queryKey: ['addon-items'], queryFn: api.getAddonItems });
 
   return (
+    <>
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: 0, height: '100%', minHeight: 600 }}>
 
       {/* ── LEFT PANEL ── */}
@@ -762,7 +765,7 @@ function POSTab() {
                 <button onClick={clearCustomer} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)' }}><X size={14} /></button>
               )}
             </div>
-            <button style={{ width: 38, height: 38, borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
+            <button onClick={() => setShowAddCustModal(true)} title="Add new customer" style={{ width: 38, height: 38, borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
               <Plus size={16} />
             </button>
           </div>
@@ -872,6 +875,17 @@ function POSTab() {
         </div>
       </div>
     </div>
+
+    {showAddCustModal && (
+      <AddCustomerModal
+        onClose={() => setShowAddCustModal(false)}
+        onCreated={async (c) => {
+          setShowAddCustModal(false);
+          await selectCustomer(c);
+        }}
+      />
+    )}
+    </>
   );
 }
 
