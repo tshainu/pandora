@@ -707,6 +707,72 @@ export default function Settings() {
           <div className="card" style={{ maxWidth: 640 }}>
             <div className="card-title">Print & Display Options</div>
 
+            {/* Receipt Header Image */}
+            <div className="form-group" style={{ marginBottom: 24 }}>
+              <label>Receipt Header Image <span style={{ fontWeight: 400, color: 'var(--text3)', fontSize: '0.78rem' }}>(80mm thermal printer)</span></label>
+              <div style={{ background: '#FEF9EC', border: '1px solid #FCD34D', borderRadius: 8, padding: '9px 13px', fontSize: '0.78rem', color: '#92400E', marginBottom: 12, display: 'flex', gap: 8 }}>
+                <span>⚠️</span>
+                <span>When a header image is set, the garment name and address are <strong>hidden</strong> on printed receipts — use this to brand with your own header graphic.</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
+                <div style={{
+                  width: 180, minHeight: 60, borderRadius: 8,
+                  border: '2px dashed var(--border)',
+                  background: '#FAFAFA',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  overflow: 'hidden', flexShrink: 0,
+                }}>
+                  {form.receipt_header_url
+                    ? <img src={form.receipt_header_url} alt="Receipt Header" style={{ width: '100%', objectFit: 'contain' }} />
+                    : <div style={{ fontSize: '0.75rem', color: 'var(--text3)', textAlign: 'center', padding: 12 }}>No header image</div>}
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text2)', marginBottom: 10 }}>
+                    Upload a pre-designed header (PNG/JPG). Max width 560px recommended. The image will be printed full-width at the top of each receipt.
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <label style={{
+                      padding: '6px 14px', background: 'var(--accent, #6366f1)', color: '#fff',
+                      borderRadius: 7, fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer',
+                    }}>
+                      Upload Header
+                      <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        const reader = new FileReader();
+                        reader.onload = ev => {
+                          const img = new Image();
+                          img.onload = () => {
+                            const canvas = document.createElement('canvas');
+                            const maxW = 560;
+                            let w = img.width, h = img.height;
+                            if (w > maxW) { h = Math.round(h * maxW / w); w = maxW; }
+                            canvas.width = w; canvas.height = h;
+                            canvas.getContext('2d')!.drawImage(img, 0, 0, w, h);
+                            set('receipt_header_url', canvas.toDataURL('image/png'));
+                          };
+                          img.src = ev.target?.result as string;
+                        };
+                        reader.readAsDataURL(file);
+                        e.target.value = '';
+                      }} />
+                    </label>
+                    {form.receipt_header_url && (
+                      <button type="button" className="btn btn-secondary btn-sm"
+                        style={{ fontSize: '0.78rem' }}
+                        onClick={() => set('receipt_header_url', '')}>Remove</button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ borderTop: '1px solid var(--border)', paddingTop: 16, marginBottom: 24 }}>
+              <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text2)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                Paper Size (Order Sheets)
+              </div>
+            </div>
+
             <div className="form-group" style={{ marginBottom: 24 }}>
               <label>Paper Size</label>
               <div style={{ display: 'flex', gap: 12 }}>
