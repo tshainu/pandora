@@ -1106,8 +1106,8 @@ export default {
         else if (month) where = `WHERE strftime('%Y-%m',s.sale_date)='${month}'`;
         const rows = await env.pandora_db.prepare(
           `SELECT s.*, c.name customer_name,
-            COALESCE(s.amount_paid,0) amount_paid,
-            ROUND(COALESCE(s.total_amount,0) - COALESCE(s.amount_paid,0), 2) due_amount,
+            COALESCE(s.paid_amount,0) amount_paid,
+            ROUND(COALESCE(s.total_amount,0) - COALESCE(s.paid_amount,0), 2) due_amount,
             CAST((julianday('now') - julianday(s.sale_date)) AS INTEGER) days_since
            FROM sales s LEFT JOIN customers c ON c.id=s.customer_id
            ${where} ORDER BY s.sale_date DESC`
