@@ -974,13 +974,21 @@ export default {
         const kvRows = await env.pandora_db.prepare('SELECT key, value FROM app_settings').all<any>();
         const kv: Record<string,string> = {};
         for (const r of (kvRows.results || [])) kv[r.key] = r.value;
-        return json({ settings: { ...cs, ...kv } });
+        // expose logo_url as company_logo for frontend compatibility
+        return json({ settings: { ...cs, ...kv, company_logo: cs?.logo_url || '' } });
       }
       if (method === 'PUT') {
         const b = await request.json() as any;
+        // logo: stored in company_settings.logo_url column; frontend sends as company_logo
+        const logoVal = b.company_logo !== undefined ? (b.company_logo || null) : undefined;
         // Core company_settings columns
-        await env.pandora_db.prepare(`UPDATE company_settings SET name=?,address=?,phone=?,email=?,order_prefix=?,invoice_prefix=?,quotation_prefix=?,order_seq=?,invoice_seq=?,quotation_seq=? WHERE id=1`)
-          .bind(b.name,b.address||null,b.phone||null,b.email||null,b.order_prefix||'ORD',b.invoice_prefix||'INV',b.quotation_prefix||'QUO',Number(b.order_seq)||1,Number(b.invoice_seq)||1,Number(b.quotation_seq)||1).run();
+        if (logoVal !== undefined) {
+          await env.pandora_db.prepare(`UPDATE company_settings SET name=?,address=?,phone=?,email=?,logo_url=?,order_prefix=?,invoice_prefix=?,quotation_prefix=?,order_seq=?,invoice_seq=?,quotation_seq=? WHERE id=1`)
+            .bind(b.name||null,b.address||null,b.phone||null,b.email||null,logoVal,b.order_prefix||'ORD',b.invoice_prefix||'INV',b.quotation_prefix||'QUO',Number(b.order_seq)||1,Number(b.invoice_seq)||1,Number(b.quotation_seq)||1).run();
+        } else {
+          await env.pandora_db.prepare(`UPDATE company_settings SET name=?,address=?,phone=?,email=?,order_prefix=?,invoice_prefix=?,quotation_prefix=?,order_seq=?,invoice_seq=?,quotation_seq=? WHERE id=1`)
+            .bind(b.name||null,b.address||null,b.phone||null,b.email||null,b.order_prefix||'ORD',b.invoice_prefix||'INV',b.quotation_prefix||'QUO',Number(b.order_seq)||1,Number(b.invoice_seq)||1,Number(b.quotation_seq)||1).run();
+        }
         // Extra settings → app_settings KV
         const extraKeys = ['currency_symbol','date_format','print_paper_size','print_show_images','print_show_elements','print_show_sizes','cal_capacity','default_order_status','wa_enabled','wa_country_code','wa_btn_position','wa_auto_confirmed','wa_auto_ready','wa_tpl_order_confirmation','wa_tpl_order_ready','wa_tpl_order_delivered','wa_tpl_payment_reminder','wa_reminder_enabled','wa_reminder_duration_days','wa_reminder_interval_days','wa_api_enabled','wa_api_phone_number_id','wa_api_access_token','wa_api_version'];
         for (const k of extraKeys) {
@@ -988,12 +996,13 @@ export default {
             await env.pandora_db.prepare(`INSERT INTO app_settings (key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value`).bind(k, String(b[k])).run();
           }
         }
-        // Return merged settings
+        // Return merged settings — expose logo_url as company_logo for frontend
         const cs = await env.pandora_db.prepare('SELECT * FROM company_settings WHERE id=1').first<any>();
         const kvRows = await env.pandora_db.prepare('SELECT key, value FROM app_settings').all<any>();
         const kv: Record<string,string> = {};
         for (const r of (kvRows.results || [])) kv[r.key] = r.value;
-        return json({ settings: { ...cs, ...kv } });
+        const merged = { ...cs, ...kv, company_logo: cs?.logo_url || '' };
+        return json({ settings: merged });
       }
     }
 

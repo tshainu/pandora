@@ -507,7 +507,11 @@ export default function Settings() {
     mutationFn: (d: object) => api.updateSettings(d),
     onSuccess: (res: any) => {
       qc.invalidateQueries({ queryKey: ['settings'] });
-      setForm(res.settings || res);
+      const merged = res.settings || res;
+      setForm(merged);
+      // Clear localStorage cache so sidebar picks up new logo/name immediately
+      localStorage.removeItem('pandora_company');
+      window.dispatchEvent(new Event('pandora_settings_saved'));
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
     },

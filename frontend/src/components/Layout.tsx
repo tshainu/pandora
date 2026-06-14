@@ -62,11 +62,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const [companyLogo, setCompanyLogo] = useState<string>('');
   const [companyName, setCompanyName] = useState<string>('');
 
-  useEffect(() => {
-    // Load logo + name from settings (cached in localStorage for speed)
-    const cached = localStorage.getItem('pandora_company');
-    if (cached) { try { const c = JSON.parse(cached); setCompanyLogo(c.logo || ''); setCompanyName(c.name || ''); } catch (_) {} }
-    // Always refresh from API
+  const refreshCompany = () => {
     fetch(`${import.meta.env.VITE_API_BASE || ''}/settings`)
       .then(r => r.json())
       .then((d: any) => {
@@ -77,6 +73,18 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           localStorage.setItem('pandora_company', JSON.stringify({ logo: s.company_logo || '', name: s.name || '' }));
         }
       }).catch(() => {});
+  };
+
+  useEffect(() => {
+    // Load logo + name from settings (cached in localStorage for speed)
+    const cached = localStorage.getItem('pandora_company');
+    if (cached) { try { const c = JSON.parse(cached); setCompanyLogo(c.logo || ''); setCompanyName(c.name || ''); } catch (_) {} }
+    // Always refresh from API
+    refreshCompany();
+    // Listen for settings saved event (dispatched from Settings page)
+    const onSettingsSaved = () => refreshCompany();
+    window.addEventListener('pandora_settings_saved', onSettingsSaved);
+    return () => window.removeEventListener('pandora_settings_saved', onSettingsSaved);
   }, []);
 
   const isActive = (to: string) =>
@@ -102,14 +110,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   return (
     <div className="layout">
       <aside className="sidebar">
-        <div className="sidebar-logo" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '18px 16px 16px' }}>
+        <div className="sidebar-logo" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '18px 16px 14px', textAlign: 'center' }}>
           {companyLogo
-            ? <img src={companyLogo} alt="Logo" style={{ width: 44, height: 44, borderRadius: 10, objectFit: 'contain', background: '#fff', flexShrink: 0 }} />
-            : <div style={{ width: 44, height: 44, borderRadius: 10, background: 'var(--red)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: '1rem', flexShrink: 0, letterSpacing: '-0.02em' }}>PG</div>
+            ? <img src={companyLogo} alt="Logo" style={{ width: 56, height: 56, borderRadius: 12, objectFit: 'contain', background: '#fff', flexShrink: 0, boxShadow: '0 2px 8px rgba(0,0,0,0.12)' }} />
+            : <div style={{ width: 56, height: 56, borderRadius: 12, background: 'var(--red)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: '1.1rem', flexShrink: 0, letterSpacing: '-0.02em' }}>PG</div>
           }
           <div>
-            <div style={{ fontWeight: 800, fontSize: '0.9rem', lineHeight: 1.2, color: 'var(--text)' }}>{companyName || 'Pandora Garments'}</div>
-            <div style={{ fontSize: '0.65rem', color: 'var(--text3)', marginTop: 2 }}>Management System</div>
+            <div style={{ fontWeight: 800, fontSize: '0.88rem', lineHeight: 1.2, color: 'var(--text)' }}>{companyName || 'Pandora Garments'}</div>
+            <div style={{ fontSize: '0.63rem', color: 'var(--text3)', marginTop: 2 }}>Management System</div>
           </div>
         </div>
         <nav className="sidebar-nav">
