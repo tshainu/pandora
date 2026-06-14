@@ -181,6 +181,11 @@ function printReceipt(sale: any, items: any[], settings?: Record<string, string>
       <div class="r80-cut">✂ - - - - - - - - - - - - - - - -</div>
     </div>`;
 
+  // Clean up any stale receipt nodes from previous call
+  document.getElementById('__receipt_print__')?.remove();
+  document.getElementById('receipt-80-page')?.remove();
+  document.body.classList.remove('printing-sale');
+
   const el = document.createElement('div');
   el.innerHTML = html;
   const node = el.firstElementChild as HTMLElement;
@@ -396,7 +401,8 @@ function POSTab() {
   const handleSaveAndPrint = (mode: 'pay' | 'credit', cash: number) => {
     saveSale.mutate({ mode, cash }, {
       onSuccess: (res: any) => {
-        setTimeout(() => printReceipt(res.sale, res.items || [], settings as Record<string, string>, res.payments), 200);
+        // Wait for modal to fully unmount before printing
+        setTimeout(() => printReceipt(res.sale, res.items || [], settings as Record<string, string>, res.payments || []), 400);
       }
     });
   };

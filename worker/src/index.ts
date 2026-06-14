@@ -855,7 +855,8 @@ export default {
 
       const sale = await env.pandora_db.prepare('SELECT s.*,c.name customer_name,COALESCE(c.phone,c.mobile) customer_phone,(SELECT o.order_no FROM orders o WHERE o.sale_id=s.id LIMIT 1) order_no FROM sales s LEFT JOIN customers c ON c.id=s.customer_id WHERE s.id=?').bind(sid).first();
       const items = await env.pandora_db.prepare('SELECT si.*,i.name item_name FROM sale_items si LEFT JOIN items i ON i.id=si.item_id WHERE si.sale_id=?').bind(sid).all();
-      return json({ sale, items: items.results }, 201);
+      const payments = await env.pandora_db.prepare('SELECT * FROM sale_payments WHERE sale_id=? ORDER BY paid_at ASC, id ASC').bind(sid).all();
+      return json({ sale, items: items.results, payments: payments.results }, 201);
     }
     const saleMatch = path.match(/^\/sales\/(\d+)$/);
     if (saleMatch) {
