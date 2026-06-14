@@ -1053,8 +1053,6 @@ export default {
       const b = await request.json() as any;
       const emp = await env.pandora_db.prepare('SELECT id FROM employees WHERE id=?').bind(b.employee_id).first();
       if (!emp) return err('Employee not found', 404);
-      const dup = await env.pandora_db.prepare('SELECT id FROM evaluations WHERE employee_id=? AND month=?').bind(b.employee_id,b.month).first();
-      if (dup) return err('Evaluation already exists for this employee and month', 409);
       const teamwork_score = ((b.team_respect_supervisors?1:0)+(b.team_cooperation?1:0)+(b.team_follow_instructions?1:0)+(b.team_no_conflicts?1:0))*2.5;
       const discipline_score = parseFloat((((b.discipline_phone_stars+b.discipline_activities_stars+b.discipline_behaviour_stars)/15)*10).toFixed(2));
       const total_score = (b.attendance_score||0)+(b.punctuality_score||0)+(b.productivity_score||0)+(b.quality_score||0)+teamwork_score+(b.initiative_score||0)+discipline_score;
@@ -1064,6 +1062,45 @@ export default {
         .bind(b.employee_id,b.month,b.supervisor_name,b.evaluation_date,b.days_leave_taken||0,b.attendance_score||0,b.attendance_remark||null,b.late_minutes||0,b.punctuality_score||0,b.punctuality_remark||null,b.productivity_stars||0,b.productivity_score||0,b.productivity_remark||null,b.quality_stars||0,b.quality_score||0,b.quality_remark||null,b.team_respect_supervisors?1:0,b.team_cooperation?1:0,b.team_follow_instructions?1:0,b.team_no_conflicts?1:0,teamwork_score,b.teamwork_remark||null,b.initiative_stars||0,b.initiative_score||0,b.initiative_remark||null,b.discipline_phone_stars||0,b.discipline_activities_stars||0,b.discipline_behaviour_stars||0,discipline_score,b.discipline_remark||null,total_score,percentage,grade,b.recommendation||'No Action',b.supervisor_comment||null).run();
       return json({ evaluation: await env.pandora_db.prepare('SELECT * FROM evaluations WHERE id=?').bind(r.meta.last_row_id).first() }, 201);
     }
+    // Monthly summary: aggregate multiple evaluations per employee per month → AVG
+    if (method === 'GET' && path === '/evaluations/summary') {
+      const month = url.searchParams.get('month');
+      const wheres: string[] = [];
+      if (month) wheres.push(`ev.month='${month}'`);
+      const where = wheres.length ? 'WHERE ' + wheres.join(' AND ') : '';
+      const rows = await env.pandora_db.prepare(`
+        SELECT
+          ev.employee_id,
+          emp.name AS employee_name,
+          emp.department,
+          emp.employee_id AS emp_code,
+          ev.month,
+          COUNT(ev.id) AS eval_count,
+          ROUND(AVG(ev.attendance_score),1) AS avg_attendance,
+          ROUND(AVG(ev.punctuality_score),1) AS avg_punctuality,
+          ROUND(AVG(ev.productivity_score),1) AS avg_productivity,
+          ROUND(AVG(ev.quality_score),1) AS avg_quality,
+          ROUND(AVG(ev.teamwork_score),1) AS avg_teamwork,
+          ROUND(AVG(ev.initiative_score),1) AS avg_initiative,
+          ROUND(AVG(ev.discipline_score),1) AS avg_discipline,
+          ROUND(AVG(ev.total_score),1) AS avg_total,
+          ROUND(AVG(ev.percentage),1) AS avg_percentage,
+          ROUND(AVG(ev.days_leave_taken),1) AS avg_leave,
+          ROUND(AVG(ev.late_minutes),1) AS avg_late_minutes
+        FROM evaluations ev
+        JOIN employees emp ON emp.id = ev.employee_id
+        ${where}
+        GROUP BY ev.employee_id, ev.month
+        ORDER BY ev.month DESC, avg_percentage DESC
+      `).all();
+      // Compute grade for each row
+      const summaries = (rows.results || []).map((r: any) => ({
+        ...r,
+        grade: gradeLabel(r.avg_percentage),
+      }));
+      return json({ summaries });
+    }
+
     const evMatch = path.match(/^\/evaluations\/(\d+)$/);
     if (evMatch) {
       const id = Number(evMatch[1]);
@@ -1074,8 +1111,6 @@ export default {
       }
       if (method === 'PUT') {
         const b = await request.json() as any;
-        const dup = await env.pandora_db.prepare('SELECT id FROM evaluations WHERE employee_id=? AND month=? AND id!=?').bind(b.employee_id,b.month,id).first();
-        if (dup) return err('Evaluation already exists for this employee and month', 409);
         const teamwork_score = ((b.team_respect_supervisors?1:0)+(b.team_cooperation?1:0)+(b.team_follow_instructions?1:0)+(b.team_no_conflicts?1:0))*2.5;
         const discipline_score = parseFloat((((b.discipline_phone_stars+b.discipline_activities_stars+b.discipline_behaviour_stars)/15)*10).toFixed(2));
         const total_score = (b.attendance_score||0)+(b.punctuality_score||0)+(b.productivity_score||0)+(b.quality_score||0)+teamwork_score+(b.initiative_score||0)+discipline_score;

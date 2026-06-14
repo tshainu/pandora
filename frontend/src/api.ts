@@ -28,6 +28,11 @@ export const api = {
   createEvaluation: (data: object) => req('/evaluations', 'POST', data).then(d => d.evaluation),
   updateEvaluation: (id: number, data: object) => req(`/evaluations/${id}`, 'PUT', data).then(d => d.evaluation),
   deleteEvaluation: (id: number) => req(`/evaluations/${id}`, 'DELETE'),
+  getEvaluationSummary: (params?: { month?: string }) => {
+    const qs = new URLSearchParams();
+    if (params?.month) qs.set('month', params.month);
+    return req(`/evaluations/summary?${qs}`).then(d => d.summaries as any[]);
+  },
 
   // ── Dashboard ────────────────────────────────────────────
   getDashboard: (month?: string) => req(`/dashboard${month ? `?month=${month}` : ''}`),

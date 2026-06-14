@@ -23,6 +23,12 @@ function StarRating({ value, onChange, max = 5 }: { value: number; onChange: (v:
 
 function starsToScore(stars: number, max = 5) { return Math.round((stars / max) * 10); }
 
+// Auto-derive month (YYYY-MM) from a date string
+function monthFromDate(dateStr: string): string {
+  if (!dateStr) return '';
+  return dateStr.slice(0, 7); // "2026-06-14" → "2026-06"
+}
+
 const blank = {
   employee_id: '', month: '', supervisor_name: '', evaluation_date: '',
   days_leave_taken: 0, attendance_score: 0, attendance_remark: '',
@@ -81,6 +87,8 @@ export default function Evaluate() {
     setForm((f: any) => {
       const next = { ...f, [field]: value };
 
+      // Auto-derive month from evaluation_date
+      if (field === 'evaluation_date') next.month = monthFromDate(value);
       // Auto-calc scores
       if (field === 'days_leave_taken') next.attendance_score = calcAttendance(value);
       if (field === 'late_minutes') next.punctuality_score = calcPunctuality(value);
@@ -110,10 +118,12 @@ export default function Evaluate() {
   const upd = useMutation({ mutationFn: ({ id, d }: any) => api.updateEvaluation(id, d), onSuccess: () => { qc.invalidateQueries({ queryKey: ['evaluations'] }); nav('/evaluations'); } });
 
   async function submit() {
-    if (!form.employee_id || !form.month || !form.supervisor_name || !form.evaluation_date) {
-      setError('Please fill all required fields (Employee, Month, Supervisor, Date)');
+    if (!form.employee_id || !form.supervisor_name || !form.evaluation_date) {
+      setError('Please fill all required fields: Employee, Evaluation Date, Supervisor');
       return;
     }
+    // Ensure month is always set from date
+    if (!form.month && form.evaluation_date) form.month = monthFromDate(form.evaluation_date);
     setError('');
     const payload = { ...form, employee_id: parseInt(form.employee_id) };
     if (editId) upd.mutate({ id: editId, d: payload });
@@ -157,8 +167,8 @@ export default function Evaluate() {
               </select>
             </div>
             <div className="form-group">
-              <label>Month *</label>
-              <input type="month" className="form-control" value={form.month} onChange={e => update('month', e.target.value)} />
+              <label>Evaluation Date *</label>
+              <input type="date" className="form-control" value={form.evaluation_date} onChange={e => update('evaluation_date', e.target.value)} />
             </div>
           </div>
           <div className="form-row">
@@ -167,8 +177,20 @@ export default function Evaluate() {
               <input className="form-control" value={form.supervisor_name} onChange={e => update('supervisor_name', e.target.value)} placeholder="Supervisor full name" />
             </div>
             <div className="form-group">
-              <label>Evaluation Date *</label>
-              <input type="date" className="form-control" value={form.evaluation_date} onChange={e => update('evaluation_date', e.target.value)} />
+              <label>Month (for summary)</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <input
+                  type="month"
+                  className="form-control"
+                  value={form.month}
+                  onChange={e => update('month', e.target.value)}
+                  style={{ flex: 1 }}
+                />
+                <span style={{ fontSize: '0.72rem', color: 'var(--text3)', whiteSpace: 'nowrap' }}>auto-filled from date</span>
+              </div>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text3)', marginTop: 3 }}>
+                All evaluations in the same month are averaged together in the Monthly Summary.
+              </div>
             </div>
           </div>
         </div>
