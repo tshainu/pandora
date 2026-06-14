@@ -847,6 +847,12 @@ export default {
       }
       if (stmts.length) await env.pandora_db.batch(stmts);
 
+      // Record payment history
+      const paidAmt = pstatus === 'Unpaid' ? 0 : (b.paid_amount || total);
+      if (paidAmt > 0) {
+        await env.pandora_db.prepare(`INSERT INTO sale_payments (sale_id,amount,method,paid_at) VALUES (?,?,?,?)`).bind(sid, paidAmt, b.payment_type||'Cash', b.sale_date).run();
+      }
+
       const sale = await env.pandora_db.prepare('SELECT s.*,c.name customer_name,COALESCE(c.phone,c.mobile) customer_phone,(SELECT o.order_no FROM orders o WHERE o.sale_id=s.id LIMIT 1) order_no FROM sales s LEFT JOIN customers c ON c.id=s.customer_id WHERE s.id=?').bind(sid).first();
       const items = await env.pandora_db.prepare('SELECT si.*,i.name item_name FROM sale_items si LEFT JOIN items i ON i.id=si.item_id WHERE si.sale_id=?').bind(sid).all();
       return json({ sale, items: items.results }, 201);
@@ -857,7 +863,9 @@ export default {
       if (method === 'GET') {
         const s = await env.pandora_db.prepare('SELECT s.*,c.name customer_name,COALESCE(c.phone,c.mobile) customer_phone,(SELECT o.order_no FROM orders o WHERE o.sale_id=s.id LIMIT 1) order_no FROM sales s LEFT JOIN customers c ON c.id=s.customer_id WHERE s.id=?').bind(id).first();
         const items = await env.pandora_db.prepare('SELECT si.*,i.name item_name FROM sale_items si LEFT JOIN items i ON i.id=si.item_id WHERE si.sale_id=?').bind(id).all();
-        return json({ sale: s, items: items.results });
+        await env.pandora_db.prepare(`CREATE TABLE IF NOT EXISTS sale_payments (id INTEGER PRIMARY KEY AUTOINCREMENT, sale_id INTEGER NOT NULL, amount REAL NOT NULL, method TEXT NOT NULL DEFAULT 'Cash', paid_at TEXT NOT NULL DEFAULT (date('now')), FOREIGN KEY(sale_id) REFERENCES sales(id) ON DELETE CASCADE)`).run();
+        const payments = await env.pandora_db.prepare('SELECT * FROM sale_payments WHERE sale_id=? ORDER BY paid_at ASC, id ASC').bind(id).all();
+        return json({ sale: s, items: items.results, payments: payments.results });
       }
       if (method === 'PUT') {
         const b: any = await request.json();
@@ -869,6 +877,13 @@ export default {
         const discount = itemsArr.reduce((s: number, l: any) => s + (l.discount || 0), 0) + (b.bill_discount || 0);
         const paid = b.paid_amount ?? 0;
         const status = paid >= total ? 'Paid' : paid > 0 ? 'Partial' : b.payment_status || 'Unpaid';
+        // Track new payment if paid_amount increased
+        const prev = await env.pandora_db.prepare('SELECT paid_amount FROM sales WHERE id=?').bind(id).first<any>();
+        const prevPaid = Number(prev?.paid_amount || 0);
+        await env.pandora_db.prepare(`CREATE TABLE IF NOT EXISTS sale_payments (id INTEGER PRIMARY KEY AUTOINCREMENT, sale_id INTEGER NOT NULL, amount REAL NOT NULL, method TEXT NOT NULL DEFAULT 'Cash', paid_at TEXT NOT NULL DEFAULT (date('now')), FOREIGN KEY(sale_id) REFERENCES sales(id) ON DELETE CASCADE)`).run();
+        if (paid > prevPaid) {
+          await env.pandora_db.prepare(`INSERT INTO sale_payments (sale_id,amount,method,paid_at) VALUES (?,?,?,?)`).bind(id, paid - prevPaid, b.payment_type||'Cash', b.sale_date||new Date().toISOString().slice(0,10)).run();
+        }
         await env.pandora_db.prepare(
           `UPDATE sales SET customer_id=?,sale_date=?,total_amount=?,discount=?,paid_amount=?,payment_type=?,payment_status=?,notes=? WHERE id=?`
         ).bind(b.customer_id||null, b.sale_date, total, discount, paid, b.payment_type||'Cash', status, b.notes||null, id).run();
@@ -1157,6 +1172,7 @@ export default {
     if (path === '/settings') {
       // Ensure app_settings KV table exists (self-migrating)
       await env.pandora_db.prepare(`CREATE TABLE IF NOT EXISTS app_settings (key TEXT PRIMARY KEY, value TEXT)`).run();
+      await env.pandora_db.prepare(`CREATE TABLE IF NOT EXISTS sale_payments (id INTEGER PRIMARY KEY AUTOINCREMENT, sale_id INTEGER NOT NULL, amount REAL NOT NULL, method TEXT NOT NULL DEFAULT 'Cash', paid_at TEXT NOT NULL DEFAULT (date('now')), FOREIGN KEY(sale_id) REFERENCES sales(id) ON DELETE CASCADE)`).run();
       // Self-migrate: add quality_rating to customers if missing
       try { await env.pandora_db.prepare('ALTER TABLE customers ADD COLUMN quality_rating INTEGER NOT NULL DEFAULT 100').run(); } catch(_){};
 

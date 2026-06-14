@@ -82,7 +82,7 @@ type PriceType = 'selling_price' | 'wholesale_price' | 'cost_price';
 const WALK_IN_ID = 4; // Walk-In Customer DB id
 
 /* ─── GLOBAL 80mm PRINT HELPER ───────────────────────────────────── */
-function printReceipt(sale: any, items: any[], settings?: Record<string, string>) {
+function printReceipt(sale: any, items: any[], settings?: Record<string, string>, payments?: any[]) {
   const regularItems = items.filter((l: any) => !l.description?.startsWith('[Add-on]'));
   const addonItems   = items.filter((l: any) =>  l.description?.startsWith('[Add-on]'));
   const fmt = (n: number) => Number(n).toLocaleString('en-LK', { minimumFractionDigits: 2 });
@@ -123,6 +123,24 @@ function printReceipt(sale: any, items: any[], settings?: Record<string, string>
     ? `<div class="r80-total-row r80-due"><span>BALANCE DUE</span><span>Rs. ${fmt(total - paid)}</span></div>`
     : '';
 
+  // Payment history rows
+  const paymentRows = (() => {
+    if (status === 'Unpaid') return '';
+    if (payments && payments.length > 0) {
+      return payments.map((p: any) => {
+        const amt = Number(p.amount || 0);
+        const method = p.method || 'Cash';
+        const dt = p.paid_at || '';
+        return `<div class="r80-total-row"><span>Paid ${dt} (${method})</span><span>Rs. ${fmt(amt)}</span></div>`;
+      }).join('');
+    }
+    // Fallback: single payment from sale fields
+    if (paid > 0) {
+      return `<div class="r80-total-row"><span>Paid ${date} (${sale.payment_type || 'Cash'})</span><span>Rs. ${fmt(paid)}</span></div>`;
+    }
+    return '';
+  })();
+
   const customerName  = sale.customer_name || 'Walk-In Customer';
   const customerPhone = sale.customer_phone || '';
   const orderNo       = sale.order_no || '';
@@ -153,7 +171,7 @@ function printReceipt(sale: any, items: any[], settings?: Record<string, string>
       <hr class="r80-divider" />
       ${discount > 0 ? `<div class="r80-total-row"><span>Discount</span><span>- ${fmtSimple(discount)}</span></div>` : ''}
       <div class="r80-grand-total"><span>TOTAL</span><span>Rs. ${fmt(total)}</span></div>
-      ${paid > 0 && status !== 'Unpaid' ? `<div class="r80-total-row"><span>Paid</span><span>Rs. ${fmt(paid)}</span></div>` : ''}
+      ${paymentRows}
       ${dueRow}
       <hr class="r80-divider" />
       <div class="r80-footer">
@@ -378,7 +396,7 @@ function POSTab() {
   const handleSaveAndPrint = (mode: 'pay' | 'credit', cash: number) => {
     saveSale.mutate({ mode, cash }, {
       onSuccess: (res: any) => {
-        setTimeout(() => printReceipt(res.sale, res.items || [], settings as Record<string, string>), 200);
+        setTimeout(() => printReceipt(res.sale, res.items || [], settings as Record<string, string>, res.payments), 200);
       }
     });
   };
@@ -1107,7 +1125,7 @@ function POSRecentModal({ onClose, onLoad }: { onClose: () => void; onLoad: (sal
     setLoading(id);
     try {
       const res = await api.getInvoice(id);
-      printReceipt(res.sale, res.items, settings as Record<string, string>);
+      printReceipt(res.sale, res.items, settings as Record<string, string>, res.payments);
     } finally { setLoading(null); }
   };
 
@@ -1282,7 +1300,7 @@ function SalesListTab() {
     setLoadingId(id);
     const res = await api.getInvoice(id);
     setLoadingId(null);
-    printReceipt(res.sale, res.items, settings as Record<string, string>);
+    printReceipt(res.sale, res.items, settings as Record<string, string>, res.payments);
   };
 
   // Shared line-items form block
@@ -1454,7 +1472,7 @@ function SalesListTab() {
                 <button className="btn btn-secondary btn-sm" onClick={() => { openEdit(selected.id); }}>
                   <Pencil size={13} /> Edit
                 </button>
-                <button className="btn btn-secondary btn-sm" onClick={() => selected && printReceipt(selected, (selected as any).items || [], settings as Record<string, string>)}>
+                <button className="btn btn-secondary btn-sm" onClick={async () => { if (!selected) return; const res = await api.getInvoice(selected.id); printReceipt(res.sale, res.items, settings as Record<string, string>, res.payments); }}>
                   <Printer size={13} /> Reprint
                 </button>
                 <button className="btn-icon" onClick={() => setModal(null)}><X size={16} /></button>
