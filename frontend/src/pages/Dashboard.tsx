@@ -6,28 +6,39 @@ import {
   CartesianGrid
 } from 'recharts';
 import {
-  TrendingUp, ShoppingCart, Package, Users, DollarSign,
-  AlertTriangle, Clock, CheckCircle, CalendarClock
+  TrendingUp, ShoppingCart, Package, Users, AlertTriangle,
+  CalendarClock, Star, Wallet, Trophy, Medal
 } from 'lucide-react';
 
 const fmt = (n: number) => new Intl.NumberFormat('en-LK', { style: 'currency', currency: 'LKR', maximumFractionDigits: 0 }).format(n || 0);
 const fmtNum = (n: number) => new Intl.NumberFormat().format(n || 0);
 const COLORS = ['#C0001A', '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0'];
 
+const gradeColor: Record<string, string> = {
+  Excellent: '#2E7D32',
+  'Very Good': '#1565C0',
+  Good: '#F57C00',
+  Average: '#6A1FA0',
+  'Needs Improvement': '#C0001A',
+};
+
+function gradeToColor(grade: string) {
+  return gradeColor[grade] ?? '#888';
+}
+
 export default function Dashboard() {
   const { data: d, isLoading, error } = useQuery({ queryKey: ['dashboard'], queryFn: () => api.getDashboard() });
 
   if (isLoading) return <div className="loading">Loading dashboard…</div>;
   if (error) return <div className="content"><div className="alert alert-danger">Failed to load dashboard</div></div>;
-
   if (!d) return null;
 
   const orderStatusDist = (d.orderStatusDist || []).map((r: { status: string; c: number }) => ({ status: r.status, count: r.c }));
   const topCustomers = d.topCustomers || [];
   const recentOrders = d.recentOrders || [];
   const upcomingDeliveries = d.upcomingDeliveries || [];
+  const topEmployees: Array<{ employeeName: string; department: string; percentage: number; grade: string }> = d.topEmployees || [];
 
-  // Daily Revenue vs Expenses for the current month (x-axis = days 1..31)
   const thisMonthLabel = new Date().toLocaleDateString('en-LK', { month: 'long', year: 'numeric' });
   const dailyData = (d.dailyTrend || []).map((r: { day: number; revenue: number; expenses: number }) => ({
     day: r.day,
@@ -63,21 +74,62 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* KPI Grid row 1 */}
-        <div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
-          <KpiCard icon={<TrendingUp size={20} />} color="#C0001A" label="Revenue (This Month)" value={fmt(d.monthlySales || 0)} sub={`${d.pendingQuotations || 0} pending quotes`} />
-          <KpiCard icon={<ShoppingCart size={20} />} color="#1565C0" label="Active Orders" value={fmtNum(d.activeOrders || 0)} sub={`${d.delayedOrders || 0} overdue`} />
-          <KpiCard icon={<Package size={20} />} color="#F57C00" label="Low Stock Items" value={fmtNum(d.lowStock || 0)} sub="need reorder" />
-          <KpiCard icon={<Users size={20} />} color="#2E7D32" label="Total Customers" value={fmtNum(d.totalCustomers || 0)} sub={`${d.totalStaff || 0} staff`} />
+        {/* KPI Grid — 6 cards, 3+3 */}
+        <div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)', marginBottom: 10 }}>
+          {/* 1 — Revenue This Month */}
+          <KpiCard
+            icon={<TrendingUp size={20} />}
+            color="#C0001A"
+            label="Revenue — This Month"
+            value={fmt(d.monthlySales || 0)}
+            sub={`Net profit: ${fmt(d.monthlyProfit || 0)}`}
+          />
+          {/* 2 — Total Orders This Month */}
+          <KpiCard
+            icon={<ShoppingCart size={20} />}
+            color="#1565C0"
+            label="Orders — This Month"
+            value={fmtNum(d.monthTotalOrders || 0)}
+            sub={`${d.delayedOrders || 0} overdue · ${d.ordersDueWeek || 0} due this week`}
+          />
+          {/* 3 — Undelivered Orders & Pcs */}
+          <KpiCard
+            icon={<Package size={20} />}
+            color="#E65100"
+            label="Undelivered Orders"
+            value={`${fmtNum(d.undeliveredOrders || 0)} orders`}
+            sub={`${fmtNum(d.undeliveredPcs || 0)} pcs pending dispatch`}
+          />
         </div>
-        <div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
-          <KpiCard icon={<DollarSign size={20} />} color="#6A1FA0" label="Expenses (This Month)" value={fmt(d.monthlyExpenses || 0)} sub="total spend" />
-          <KpiCard icon={<CheckCircle size={20} />} color="#2E7D32" label="Net Profit" value={fmt(d.monthlyProfit || 0)} sub="revenue - expenses" />
-          <KpiCard icon={<Clock size={20} />} color="#F57C00" label="Uncollected Orders" value={fmtNum(d.uncollectedOrders || 0)} sub="ready to dispatch" />
-          <KpiCard icon={<Users size={20} />} color="#1565C0" label="HR: Avg KPI Score" value={`${d.avgKpi || 0}%`} sub={`${d.totalEmployees || 0} employees`} />
+        <div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)', marginBottom: 20 }}>
+          {/* 4 — Outstanding Amount */}
+          <KpiCard
+            icon={<Wallet size={20} />}
+            color="#B71C1C"
+            label="Outstanding Amount"
+            value={fmt(d.outstandingAmount || 0)}
+            sub="unpaid / partially paid"
+            highlight
+          />
+          {/* 5 — New Customers */}
+          <KpiCard
+            icon={<Users size={20} />}
+            color="#2E7D32"
+            label="New Customers — This Month"
+            value={fmtNum(d.newCustomers || 0)}
+            sub={`${fmtNum(d.totalCustomers || 0)} total active`}
+          />
+          {/* 6 — HR Avg KPI Score */}
+          <KpiCard
+            icon={<Star size={20} />}
+            color="#6A1FA0"
+            label="HR Avg KPI Score — This Month"
+            value={`${d.monthAvgKpi ?? 0}%`}
+            sub={`${d.evaluatedCount || 0} evaluations · ${d.excellent || 0} excellent`}
+          />
         </div>
 
-        {/* Charts row 1 — this month Revenue vs Expenses */}
+        {/* Charts row 1 — Revenue vs Expenses bar */}
         <div className="card" style={{ marginBottom: 16 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
             <div className="card-title" style={{ marginBottom: 0 }}>Revenue vs Expenses — {thisMonthLabel}</div>
@@ -88,21 +140,8 @@ export default function Dashboard() {
           </div>
           <ResponsiveContainer width="100%" height={240}>
             <BarChart data={dailyData} margin={{ top: 16, right: 10, left: 0, bottom: 0 }} barGap={2} barCategoryGap="20%">
-              <XAxis
-                dataKey="day"
-                tick={{ fontSize: 10, fill: '#999' }}
-                axisLine={false}
-                tickLine={false}
-                interval={0}
-                dy={6}
-              />
-              <YAxis
-                tick={{ fontSize: 11, fill: '#999' }}
-                axisLine={false}
-                tickLine={false}
-                tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
-                width={38}
-              />
+              <XAxis dataKey="day" tick={{ fontSize: 10, fill: '#999' }} axisLine={false} tickLine={false} interval={0} dy={6} />
+              <YAxis tick={{ fontSize: 11, fill: '#999' }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} width={38} />
               <CartesianGrid stroke="#F3F3F3" strokeDasharray="" vertical={false} />
               <Tooltip
                 cursor={{ fill: 'rgba(0,0,0,0.04)' }}
@@ -117,7 +156,7 @@ export default function Dashboard() {
           </ResponsiveContainer>
         </div>
 
-        {/* Charts row 2 — pie + bar + recent orders */}
+        {/* Charts row 2 — pie + top customers + recent orders */}
         <div className="charts-grid">
           <div className="card">
             <div className="card-title">Orders by Status</div>
@@ -155,12 +194,7 @@ export default function Dashboard() {
             <div className="table-wrap">
               <table>
                 <thead>
-                  <tr>
-                    <th>Order #</th>
-                    <th>Customer</th>
-                    <th>Due Date</th>
-                    <th>Status</th>
-                  </tr>
+                  <tr><th>Order #</th><th>Customer</th><th>Due Date</th><th>Status</th></tr>
                 </thead>
                 <tbody>
                   {recentOrders.length === 0 && (
@@ -180,49 +214,88 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Upcoming Deliveries */}
-        <div className="card" style={{ marginTop: 16 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <div className="card-title" style={{ marginBottom: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <CalendarClock size={16} style={{ color: 'var(--red)' }} />
-              Upcoming Deliveries (Next 7 Days)
+        {/* Bottom row — upcoming deliveries + top performers */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: 16, marginTop: 16 }}>
+
+          {/* Upcoming Deliveries */}
+          <div className="card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <div className="card-title" style={{ marginBottom: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <CalendarClock size={16} style={{ color: 'var(--red)' }} />
+                Upcoming Deliveries (Next 7 Days)
+              </div>
+              <span style={{ background: '#C0001A15', color: 'var(--red)', borderRadius: 20, padding: '2px 10px', fontSize: '0.75rem', fontWeight: 700 }}>
+                {d.ordersDueWeek || 0} due
+              </span>
             </div>
-            <span style={{ background: '#C0001A15', color: 'var(--red)', borderRadius: 20, padding: '2px 10px', fontSize: '0.75rem', fontWeight: 700 }}>
-              {d.ordersDueWeek || 0} due
-            </span>
+            {upcomingDeliveries.length === 0 ? (
+              <div className="empty" style={{ padding: '24px 0' }}>
+                <div className="empty-icon">📅</div>
+                <p>No deliveries due this week</p>
+              </div>
+            ) : (
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr><th>Order #</th><th>Customer</th><th>Due Date</th><th>Status</th><th>Days Left</th></tr>
+                  </thead>
+                  <tbody>
+                    {upcomingDeliveries.map((o: { id: number; order_no: string; customer_name: string; delivery_date: string; status: string }) => {
+                      const daysLeft = Math.ceil((new Date(o.delivery_date).getTime() - Date.now()) / 86400000);
+                      return (
+                        <tr key={o.id}>
+                          <td style={{ fontWeight: 600, color: 'var(--red)' }}>{o.order_no}</td>
+                          <td>{o.customer_name}</td>
+                          <td style={{ fontSize: '0.78rem' }}>{o.delivery_date}</td>
+                          <td><StatusBadge status={o.status} /></td>
+                          <td>
+                            <span style={{ fontWeight: 700, color: daysLeft === 0 ? 'var(--red)' : daysLeft <= 2 ? '#E65100' : 'var(--success)', fontSize: '0.82rem' }}>
+                              {daysLeft === 0 ? 'Today!' : daysLeft < 0 ? 'Overdue' : `${daysLeft}d`}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
-          {upcomingDeliveries.length === 0 ? (
-            <div className="empty" style={{ padding: '24px 0' }}>
-              <div className="empty-icon">📅</div>
-              <p>No deliveries due this week</p>
+
+          {/* Top Performers Leaderboard */}
+          <div className="card" style={{ display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+              <div style={{ background: '#6A1FA015', borderRadius: 8, padding: 6, color: '#6A1FA0', display: 'flex' }}>
+                <Trophy size={16} />
+              </div>
+              <div className="card-title" style={{ marginBottom: 0 }}>Top Performers — {thisMonthLabel}</div>
             </div>
-          ) : (
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr><th>Order #</th><th>Customer</th><th>Due Date</th><th>Status</th><th>Days Left</th></tr>
-                </thead>
-                <tbody>
-                  {upcomingDeliveries.map((o: { id: number; order_no: string; customer_name: string; delivery_date: string; status: string }) => {
-                    const daysLeft = Math.ceil((new Date(o.delivery_date).getTime() - Date.now()) / 86400000);
-                    return (
-                      <tr key={o.id}>
-                        <td style={{ fontWeight: 600, color: 'var(--red)' }}>{o.order_no}</td>
-                        <td>{o.customer_name}</td>
-                        <td style={{ fontSize: '0.78rem' }}>{o.delivery_date}</td>
-                        <td><StatusBadge status={o.status} /></td>
-                        <td>
-                          <span style={{ fontWeight: 700, color: daysLeft === 0 ? 'var(--red)' : daysLeft <= 2 ? '#E65100' : 'var(--success)', fontSize: '0.82rem' }}>
-                            {daysLeft === 0 ? 'Today!' : daysLeft < 0 ? 'Overdue' : `${daysLeft}d`}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
+
+            {topEmployees.length === 0 ? (
+              <div className="empty" style={{ flex: 1, padding: '24px 0' }}>
+                <div className="empty-icon">🏆</div>
+                <p>No evaluations this month</p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {topEmployees.map((emp, idx) => (
+                  <LeaderboardRow key={idx} rank={idx + 1} emp={emp} />
+                ))}
+              </div>
+            )}
+
+            {topEmployees.length > 0 && (
+              <div style={{
+                marginTop: 16, padding: '10px 12px', borderRadius: 10,
+                background: 'linear-gradient(135deg, #6A1FA010, #4E6FFF08)',
+                border: '1px solid #6A1FA020',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+              }}>
+                <span style={{ fontSize: '0.78rem', color: 'var(--text3)' }}>Team Avg Score</span>
+                <span style={{ fontWeight: 800, fontSize: '1.1rem', color: '#6A1FA0' }}>{d.monthAvgKpi ?? 0}%</span>
+              </div>
+            )}
+          </div>
         </div>
 
       </div>
@@ -230,13 +303,63 @@ export default function Dashboard() {
   );
 }
 
-function KpiCard({ icon, color, label, value, sub }: { icon: React.ReactNode; color: string; label: string; value: string; sub: string }) {
+const RANK_ICONS = [
+  <Medal size={15} style={{ color: '#FFD700' }} />,
+  <Medal size={15} style={{ color: '#C0C0C0' }} />,
+  <Medal size={15} style={{ color: '#CD7F32' }} />,
+];
+
+function LeaderboardRow({ rank, emp }: { rank: number; emp: { employeeName: string; department: string; percentage: number; grade: string } }) {
+  const pct = emp.percentage || 0;
+  const color = gradeToColor(emp.grade);
   return (
-    <div className="kpi-card">
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 10,
+      padding: '8px 10px', borderRadius: 10,
+      background: rank === 1 ? '#FFD70008' : 'var(--bg)',
+      border: rank === 1 ? '1px solid #FFD70030' : '1px solid var(--border)',
+    }}>
+      {/* Rank */}
+      <div style={{
+        width: 26, height: 26, borderRadius: '50%', flexShrink: 0,
+        background: rank <= 3 ? `${color}15` : '#F0F0F0',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontWeight: 800, fontSize: '0.72rem', color: rank <= 3 ? color : '#999',
+      }}>
+        {rank <= 3 ? RANK_ICONS[rank - 1] : rank}
+      </div>
+
+      {/* Name + dept */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontWeight: 700, fontSize: '0.85rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {emp.employeeName}
+        </div>
+        <div style={{ fontSize: '0.71rem', color: 'var(--text3)' }}>{emp.department}</div>
+      </div>
+
+      {/* Score bar */}
+      <div style={{ width: 70, flexShrink: 0 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+          <span style={{ fontSize: '0.68rem', color: 'var(--text3)' }}>{emp.grade}</span>
+          <span style={{ fontSize: '0.78rem', fontWeight: 800, color }}>{pct}%</span>
+        </div>
+        <div style={{ height: 5, borderRadius: 10, background: '#E8E8E8', overflow: 'hidden' }}>
+          <div style={{ height: '100%', width: `${pct}%`, borderRadius: 10, background: color, transition: 'width 0.6s ease' }} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function KpiCard({ icon, color, label, value, sub, highlight }: {
+  icon: React.ReactNode; color: string; label: string; value: string; sub: string; highlight?: boolean;
+}) {
+  return (
+    <div className="kpi-card" style={highlight ? { borderLeft: `3px solid ${color}`, background: `${color}06` } : {}}>
       <div className="kpi-icon" style={{ background: `${color}15`, color }}>{icon}</div>
       <div className="kpi-info">
         <label>{label}</label>
-        <h3 style={{ fontSize: '1.3rem' }}>{value}</h3>
+        <h3 style={{ fontSize: '1.3rem', color: highlight ? color : undefined }}>{value}</h3>
         <span>{sub}</span>
       </div>
     </div>

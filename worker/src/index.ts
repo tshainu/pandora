@@ -74,6 +74,9 @@ export default {
       const emf = month ? `WHERE strftime('%Y-%m', expense_date)='${month}'` : '';
       const omf = month ? `WHERE strftime('%Y-%m', order_date)='${month}'` : '';
 
+      const curMonth = new Date().toISOString().slice(0, 7);
+      const thisMonth = month || curMonth;
+
       const [
         totalCustomers, activeOrders, monthlySales, monthlyExpenses,
         totalStaff, avgKpi, lowStock, pendingQuotations,
@@ -82,7 +85,8 @@ export default {
         evaluatedCount, avgScore, excellent, needsImprovement,
         attendanceIssues, promotionCandidates, salaryIncrementCandidates,
         delayedOrders, uncollectedOrders, upcomingDeliveries, recentOrders,
-        dailySales, dailyExpenses
+        dailySales, dailyExpenses,
+        monthTotalOrders, undeliveredOrders, outstandingAmount, newCustomers, monthAvgKpi
       ] = await Promise.all([
         env.pandora_db.prepare("SELECT COUNT(*) c FROM customers WHERE status='Active'").first<any>(),
         env.pandora_db.prepare("SELECT COUNT(*) c FROM orders WHERE status NOT IN ('Delivered','Collected','Cancelled')").first<any>(),
@@ -99,7 +103,7 @@ export default {
         env.pandora_db.prepare("SELECT c.name, COALESCE(SUM(s.total_amount),0) total FROM customers c LEFT JOIN sales s ON s.customer_id=c.id GROUP BY c.id ORDER BY total DESC LIMIT 5").all(),
         env.pandora_db.prepare(`SELECT grade, COUNT(*) count FROM evaluations ${month ? `WHERE month LIKE '${month}%'` : ''} GROUP BY grade`).all(),
         env.pandora_db.prepare("SELECT d.name department, ROUND(AVG(ev.percentage),1) avgScore FROM evaluations ev JOIN employees e ON e.id=ev.employee_id JOIN departments d ON d.name=e.department GROUP BY d.name").all(),
-        env.pandora_db.prepare(`SELECT ev.id, emp.name employeeName, emp.department, ev.month, ev.percentage, ev.grade FROM evaluations ev JOIN employees emp ON emp.id=ev.employee_id ${month ? `WHERE ev.month='${month}'` : ''} ORDER BY ev.percentage DESC LIMIT 10`).all(),
+        env.pandora_db.prepare(`SELECT ev.id, emp.name employeeName, emp.department, ev.month, ev.percentage, ev.grade FROM evaluations ev JOIN employees emp ON emp.id=ev.employee_id WHERE ev.month=? ORDER BY ev.percentage DESC LIMIT 5`).bind(thisMonth).all(),
         env.pandora_db.prepare(`SELECT COUNT(*) c FROM evaluations ${month ? `WHERE month='${month}'` : ''}`).first<any>(),
         env.pandora_db.prepare(`SELECT ROUND(AVG(percentage),1) a FROM evaluations ${month ? `WHERE month='${month}'` : ''}`).first<any>(),
         env.pandora_db.prepare(`SELECT COUNT(*) c FROM evaluations WHERE percentage>=90 ${month ? `AND month='${month}'` : ''}`).first<any>(),
@@ -113,6 +117,11 @@ export default {
         env.pandora_db.prepare("SELECT o.id,o.order_no,c.name customer_name,o.delivery_date,o.status FROM orders o LEFT JOIN customers c ON c.id=o.customer_id ORDER BY o.created_at DESC LIMIT 10").all(),
         env.pandora_db.prepare(`SELECT CAST(strftime('%d', sale_date) AS INTEGER) d, ROUND(SUM(total_amount),2) total FROM sales WHERE strftime('%Y-%m', sale_date)=${month ? "?" : "strftime('%Y-%m','now')"} GROUP BY d`).bind(...(month ? [month] : [])).all(),
         env.pandora_db.prepare(`SELECT CAST(strftime('%d', expense_date) AS INTEGER) d, ROUND(SUM(amount),2) total FROM expenses WHERE strftime('%Y-%m', expense_date)=${month ? "?" : "strftime('%Y-%m','now')"} GROUP BY d`).bind(...(month ? [month] : [])).all(),
+        env.pandora_db.prepare(`SELECT COUNT(*) c FROM orders WHERE strftime('%Y-%m',order_date)=?`).bind(thisMonth).first<any>(),
+        env.pandora_db.prepare("SELECT COUNT(*) orders_c, COALESCE(SUM(total_qty),0) pcs_c FROM orders WHERE status NOT IN ('Delivered','Collected','Cancelled')").first<any>(),
+        env.pandora_db.prepare("SELECT COALESCE(SUM(total_amount - COALESCE(paid_amount,0)),0) amt FROM sales WHERE payment_status IN ('Due','Partial')").first<any>(),
+        env.pandora_db.prepare(`SELECT COUNT(*) c FROM customers WHERE strftime('%Y-%m',created_at)=?`).bind(thisMonth).first<any>(),
+        env.pandora_db.prepare(`SELECT ROUND(AVG(percentage),1) a FROM evaluations WHERE month=?`).bind(thisMonth).first<any>(),
       ]);
 
       // Build a full 1..daysInMonth daily series for revenue vs expenses
@@ -166,6 +175,13 @@ export default {
         deptPerformance: deptPerf.results,
         upcomingDeliveries: upcomingDeliveries.results,
         recentOrders: recentOrders.results,
+        // new KPI fields
+        monthTotalOrders: monthTotalOrders?.c ?? 0,
+        undeliveredOrders: undeliveredOrders?.orders_c ?? 0,
+        undeliveredPcs: undeliveredOrders?.pcs_c ?? 0,
+        outstandingAmount: outstandingAmount?.amt ?? 0,
+        newCustomers: newCustomers?.c ?? 0,
+        monthAvgKpi: monthAvgKpi?.a ?? 0,
       });
     }
 
