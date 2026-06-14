@@ -1181,7 +1181,7 @@ export default {
             .bind(b.name||null,b.address||null,b.phone||null,b.email||null,b.order_prefix||'ORD',b.invoice_prefix||'INV',b.quotation_prefix||'QUO',Number(b.order_seq)||1,Number(b.invoice_seq)||1,Number(b.quotation_seq)||1).run();
         }
         // Extra settings → app_settings KV
-        const extraKeys = ['currency_symbol','date_format','print_paper_size','print_show_images','print_show_elements','print_show_sizes','cal_capacity','default_order_status','wa_enabled','wa_country_code','wa_btn_position','wa_auto_confirmed','wa_auto_ready','wa_tpl_order_confirmation','wa_tpl_order_ready','wa_tpl_order_delivered','wa_tpl_payment_reminder','wa_reminder_enabled','wa_reminder_duration_days','wa_reminder_interval_days','wa_api_enabled','wa_api_phone_number_id','wa_api_access_token','wa_api_version'];
+        const extraKeys = ['currency_symbol','date_format','print_paper_size','print_show_images','print_show_elements','print_show_sizes','receipt_header_url','cal_capacity','default_order_status','wa_enabled','wa_country_code','wa_btn_position','wa_auto_confirmed','wa_auto_ready','wa_tpl_order_confirmation','wa_tpl_order_ready','wa_tpl_order_delivered','wa_tpl_payment_reminder','wa_reminder_enabled','wa_reminder_duration_days','wa_reminder_interval_days','wa_api_enabled','wa_api_phone_number_id','wa_api_access_token','wa_api_version'];
         for (const k of extraKeys) {
           if (b[k] !== undefined) {
             await env.pandora_db.prepare(`INSERT INTO app_settings (key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value`).bind(k, String(b[k])).run();
